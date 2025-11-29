@@ -17,21 +17,33 @@ let wsRetryCount = 0;
 const MAX_WS_RETRY_DELAY = 30000;
 
 async function startChrome() {
-    browser = await puppeteer.launch({
-        headless: true,
-        executablePath: "/usr/bin/google-chrome-stable",
-        args: [
-            "--no-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-gpu",
-            "--disable-setuid-sandbox",
-            "--disable-extensions-except=/opt/relay-extension",
-            "--load-extension=/opt/relay-extension",
-            "--user-data-dir=/data/chrome-profile",
-        ],
-    });
-    page = await browser.newPage();
-    await page.goto("https://relay.amazon.com", { waitUntil: "networkidle2" });
+    console.log("Starting Chrome...");
+    try {
+        browser = await puppeteer.launch({
+            headless: true,
+            executablePath: "/usr/bin/google-chrome-stable",
+            args: [
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--disable-setuid-sandbox",
+                "--disable-extensions-except=/opt/relay-extension",
+                "--load-extension=/opt/relay-extension",
+                "--user-data-dir=/data/chrome-profile",
+            ],
+        });
+        console.log("Browser launched, creating page...");
+        page = await browser.newPage();
+        console.log("Navigating to relay.amazon.com...");
+        try {
+            await page.goto("https://relay.amazon.com", { waitUntil: "networkidle2", timeout: 60000 });
+            console.log("Navigation complete.");
+        } catch (e) {
+            console.error("Navigation failed:", e);
+        }
+    } catch (e) {
+        console.error("Chrome launch failed:", e);
+    }
 }
 
 function sanitizeSettings(settings: any) {
@@ -168,8 +180,8 @@ function connectWs() {
 }
 
 (async () => {
-    await startChrome();
     connectWs();
+    await startChrome();
 
     process.on("SIGTERM", async () => {
         try {
