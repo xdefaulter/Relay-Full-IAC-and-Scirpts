@@ -1,5 +1,8 @@
 import WebSocket from "ws";
 import { chromium, Browser, BrowserContext, Page } from "playwright";
+import { execSync } from "child_process";
+import fs from "fs";
+import path from "path";
 
 const MANAGER_WS_URL = process.env.MANAGER_WS_URL!;
 const NODE_ID = process.env.NODE_ID || `worker-${Math.random().toString(36).slice(2)}`;
@@ -11,6 +14,37 @@ if (!WS_SECRET) {
     console.warn("WARNING: WS_SECRET not set! Connection may be rejected by manager.");
 }
 
+// --- Types ---
+
+interface RelaySettings {
+    origin: {
+        latitude: number;
+        longitude: number;
+        name: string;
+        stateCode: string;
+        displayValue: string;
+    };
+    radius: number;
+    maxDistance: number;
+    minPayout: number;
+    resultSize: number;
+    earliestStartHours: number;
+    minRatePerMile?: number;
+    savedSearchId?: string;
+}
+
+interface PollResult {
+    ok: boolean;
+    workOpportunities?: any[];
+    error?: string;
+    status?: number;
+    duration?: number;
+    parseDuration?: number;
+    retryAfter?: string | null;
+}
+
+// --- State ---
+
 let ws: WebSocket | null = null;
 let browser: Browser | null = null;
 let context: BrowserContext | null = null;
@@ -18,10 +52,107 @@ let page: Page | null = null;
 let failureStreak = 0;
 let wsRetryCount = 0;
 const MAX_WS_RETRY_DELAY = 30000;
+let cachedCsrfToken: string | null = null;
 
-import { execSync } from "child_process";
-import fs from "fs";
-import path from "path";
+// --- Helper Functions ---
+
+function computeEarliestStartDate(hours: any): string | null {
+    const h = Number(hours);
+    if (!Number.isFinite(h) || h <= 0) return null;
+    const future = new Date(Date.now() + h * 3600000);
+    return future.toISOString();
+}
+
+function buildAuditContextObject(userAgent: string) {
+    return {
+        rlbChannel: "EXACT_MATCH",
+        isOriginCityLive: "false",
+        isDestinationCityLive: "false",
+        userAgent: userAgent,
+        source: "AVAILABLE_WORK"
+    };
+}
+
+function buildSlimPayload(settings: RelaySettings, userAgent: string) {
+    const origin = settings.origin;
+    if (!origin) throw new Error("Missing origin in settings");
+
+    const radiusFilter = {
+        cityLatitude: origin.latitude,
+        cityLongitude: origin.longitude,
+        cityName: origin.name,
+        cityStateCode: origin.stateCode,
+        cityDisplayValue: origin.displayValue,
+        radius: settings.radius
+    };
+
+    const auditContext = buildAuditContextObject(userAgent);
+
+    const categorizedEquipment = [{
+        equipmentCategory: "PROVIDED",
+        equipmentsList: [
+            "FIFTY_THREE_FOOT_TRUCK",
+            "SKIRTED_FIFTY_THREE_FOOT_TRUCK",
+            "FIFTY_THREE_FOOT_DRY_VAN",
+            "FIFTY_THREE_FOOT_A5_AIR_TRAILER",
+            "FORTY_FIVE_FOOT_TRUCK"
+        ]
+    }];
+
+    return {
+        workOpportunityTypeList: ["ONE_WAY", "ROUND_TRIP"],
+        originCity: null,
+        liveCity: null,
+        originCities: [origin],
+        startCityName: null,
+        startCityStateCode: null,
+        startCityLatitude: null,
+        startCityLongitude: null,
+        startCityDisplayValue: null,
+        isOriginCityLive: null,
+        startCityRadius: settings.radius,
+        destinationCity: null,
+        originCitiesRadiusFilters: [radiusFilter],
+        destinationCitiesRadiusFilters: null,
+        exclusionCitiesFilter: null,
+        endCityName: null,
+        endCityStateCode: null,
+        endCityDisplayValue: null,
+        endCityLatitude: null,
+        endCityLongitude: null,
+        isDestinationCityLive: null,
+        endCityRadius: null,
+        startDate: computeEarliestStartDate(settings.earliestStartHours),
+        endDate: null,
+        minDistance: null,
+        maxDistance: settings.maxDistance,
+        minimumDurationInMillis: null,
+        maximumDurationInMillis: null,
+        minPayout: settings.minPayout,
+        minPricePerDistance: settings.minRatePerMile || null,
+        driverTypeFilters: [],
+        uiiaCertificationsFilter: [],
+        workOpportunityOperatingRegionFilter: [],
+        loadingTypeFilters: [],
+        maximumNumberOfStops: null,
+        workOpportunityAccessType: null,
+        sortByField: "startTime",
+        sortOrder: "asc",
+        visibilityStatusType: "ALL",
+        categorizedEquipmentTypeList: categorizedEquipment,
+        categorizedEquipmentTypeListForFilterPills: [{
+            equipmentCategory: "PROVIDED",
+            equipmentsList: ["FIFTY_THREE_FOOT_TRUCK"]
+        }],
+        nextItemToken: 0,
+        resultSize: settings.resultSize,
+        searchURL: "",
+        savedSearchId: settings.savedSearchId || "",
+        isAutoRefreshCall: false,
+        notificationId: "",
+        auditContextMap: JSON.stringify(auditContext)
+    };
+}
 
 async function startChrome() {
     console.log("Starting Chrome with Playwright...");
@@ -44,7 +175,6 @@ async function startChrome() {
     }
 
     try {
-        // Launch browser with persistent context (better extension support)
         context = await chromium.launchPersistentContext("/home/pptruser/chrome-profile", {
             headless: false, // Running with Xvfb virtual display
             args: [
@@ -53,21 +183,29 @@ async function startChrome() {
                 "--disable-gpu",
                 "--disable-setuid-sandbox",
                 "--no-zygote",
-                `--disable-extensions-except=/opt/relay-extension`,
-                `--load-extension=/opt/relay-extension`,
             ],
-            // Playwright automatically sets DISPLAY for Xvfb
+            viewport: { width: 1280, height: 1024 }
         });
 
         console.log("Browser context created, getting page...");
 
-        // Get existing page or create new one
         const pages = context.pages();
         page = pages.length > 0 ? pages[0] : await context.newPage();
 
         // Capture page logs and errors
         page.on('console', msg => console.log('PAGE LOG:', msg.text()));
         page.on('pageerror', err => console.log('PAGE ERROR:', err.toString()));
+
+        // Capture CSRF token from headers
+        page.on('request', (request: any) => {
+            const headers = request.headers();
+            if (headers['x-csrf-token']) {
+                if (cachedCsrfToken !== headers['x-csrf-token']) {
+                    console.log("Captured new CSRF token from request headers");
+                    cachedCsrfToken = headers['x-csrf-token'];
+                }
+            }
+        });
 
         // Set cookies if provided
         let cookiesStr = process.env.RELAY_COOKIES;
@@ -82,7 +220,6 @@ async function startChrome() {
         if (cookiesStr) {
             try {
                 const cookies = JSON.parse(cookiesStr);
-                // Convert Puppeteer cookie format to Playwright format
                 const playwrightCookies = cookies.map((c: any) => ({
                     name: c.name,
                     value: c.value,
@@ -100,32 +237,20 @@ async function startChrome() {
             }
         }
 
-        // Check extensions
-        try {
-            await page.goto("chrome://extensions");
-            await page.waitForTimeout(2000);
-            const extensions = await page.evaluate(() => document.body.innerText);
-            console.log("EXTENSIONS PAGE CONTENT:", extensions);
-        } catch (e) {
-            console.log("Failed to check extensions page:", e);
-        }
-
         console.log("Navigating to relay.amazon.com/tours/loadboard...");
         try {
             await page.goto("https://relay.amazon.com/tours/loadboard", { waitUntil: "networkidle", timeout: 60000 });
             console.log("Navigation complete. Current URL:", page.url());
 
-            // Login Logic
+            // Check for login redirect
             if (page.url().includes("login") || page.url().includes("signin")) {
                 console.log("Login page detected. Attempting login...");
                 if (USERNAME && PASSWORD) {
                     try {
-                        // Wait for email input
                         const emailSel = "#ap_email";
                         await page.waitForSelector(emailSel, { timeout: 10000 });
                         await page.fill(emailSel, USERNAME);
 
-                        // Click Continue if it exists (for 2-step login)
                         const continueSel = "#continue";
                         const continueBtn = await page.$(continueSel);
                         if (continueBtn) {
@@ -133,17 +258,22 @@ async function startChrome() {
                             await page.waitForTimeout(2000);
                         }
 
-                        // Wait for password input
                         const passSel = "#ap_password";
                         await page.waitForSelector(passSel, { timeout: 10000 });
                         await page.fill(passSel, PASSWORD);
 
-                        // Submit
                         const submitSel = "#signInSubmit";
                         await page.click(submitSel);
                         console.log("Login submitted, waiting for navigation...");
                         await page.waitForNavigation({ waitUntil: "networkidle", timeout: 30000 });
                         console.log("After login, current URL:", page.url());
+
+                        // Check for CAPTCHA or OTP
+                        const bodyText = await page.evaluate(() => document.body.innerText);
+                        if (bodyText.includes("Solve this puzzle") || bodyText.includes("One Time Password")) {
+                            console.error("CRITICAL: Login blocked by CAPTCHA or OTP. Manual intervention required.");
+                        }
+
                     } catch (loginErr) {
                         console.error("Login failed:", loginErr);
                     }
@@ -164,38 +294,110 @@ async function startChrome() {
     }
 }
 
-async function doPoll() {
+async function getCsrfToken(): Promise<string> {
+    if (cachedCsrfToken) return cachedCsrfToken;
+
+    if (!page) throw new Error("Page not initialized");
+
+    // Try to get from cookies
+    const cookies = await context!.cookies("https://relay.amazon.com");
+    const csrfCookie = cookies.find((c: any) => c.name === "csrf-token" || c.name === "x-csrf-token");
+    if (csrfCookie) {
+        console.log("Found CSRF token in cookies");
+        cachedCsrfToken = decodeURIComponent(csrfCookie.value);
+        return cachedCsrfToken;
+    }
+
+    // Try to get from meta tag
+    const metaToken = await page.evaluate(() => {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.getAttribute('content') : null;
+    });
+
+    if (metaToken) {
+        console.log("Found CSRF token in meta tag");
+        cachedCsrfToken = metaToken;
+        return cachedCsrfToken;
+    }
+
+    throw new Error("Could not find CSRF token. Page might not be fully loaded or logged in.");
+}
+
+async function doPoll(settings: RelaySettings) {
     if (!page) {
         throw new Error("Page not initialized");
     }
 
-    console.log("Triggering relay poll...");
-    const result = await page.evaluate((opts) => {
-        return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error("poll timeout")), 10000);
+    try {
+        const csrf = await getCsrfToken();
+        // Get actual User Agent from the page
+        const userAgent = await page.evaluate(() => navigator.userAgent);
+        const payload = buildSlimPayload(settings, userAgent);
 
-            window.postMessage(
-                {
-                    type: "RELAY_POLL_NOW",
-                    settings: opts,
-                },
-                window.location.origin
-            );
-
-            const listener = (event: MessageEvent) => {
-                if (event.origin !== window.location.origin) return;
-                if (event.data?.type === "RELAY_POLL_RESPONSE") {
-                    clearTimeout(timeout);
-                    window.removeEventListener("message", listener);
-                    resolve(event.data.result);
-                }
+        console.log("Executing search on page...");
+        const result = await page.evaluate(async ({ payload, csrf }: { payload: any, csrf: string }) => {
+            const headers: Record<string, string> = {
+                "content-type": "application/json",
+                "x-csrf-token": csrf,
+                "save-data": "on"
             };
-            window.addEventListener("message", listener);
-        });
-    }, {});
 
-    console.log("Poll result:", result);
-    return result;
+            const start = performance.now();
+            try {
+                const response = await fetch("/api/loadboard/search", {
+                    method: "POST",
+                    credentials: "include",
+                    headers,
+                    body: JSON.stringify(payload),
+                    cache: "no-store",
+                    keepalive: true
+                });
+                const duration = performance.now() - start;
+                const text = await response.text();
+
+                if (!response.ok) {
+                    return {
+                        ok: false,
+                        error: text.slice(0, 200),
+                        status: response.status,
+                        retryAfter: response.headers.get("retry-after")
+                    };
+                }
+
+                const parseStart = performance.now();
+                const parsed = JSON.parse(text || "{}");
+                const parseDuration = performance.now() - parseStart;
+
+                return {
+                    ok: true,
+                    workOpportunities: parsed.workOpportunities || [],
+                    duration,
+                    parseDuration
+                };
+            } catch (fetchErr: any) {
+                return {
+                    ok: false,
+                    error: fetchErr.message || "Network error",
+                    status: 0
+                };
+            }
+        }, { payload, csrf });
+
+        if (!result.ok) {
+            if (result.status === 401 || result.status === 403) {
+                console.warn("Auth error (401/403), clearing cached CSRF token");
+                cachedCsrfToken = null;
+            }
+            throw new Error(`Search failed: ${result.status} - ${result.error}`);
+        }
+
+        console.log(`Poll success: ${result.workOpportunities.length} loads found in ${Math.round(result.duration)}ms`);
+        return result;
+
+    } catch (err) {
+        console.error("Poll execution error:", err);
+        throw err;
+    }
 }
 
 function connectWS() {
@@ -219,7 +421,6 @@ function connectWS() {
         console.log("Connected to Manager");
         wsRetryCount = 0;
 
-        // Send initial ready
         ws!.send(
             JSON.stringify({
                 type: "ready",
@@ -230,11 +431,11 @@ function connectWS() {
 
     ws.on("message", async (data: Buffer) => {
         const msg = JSON.parse(data.toString());
-        console.log("Received message:", msg);
+        console.log("Received message type:", msg.type);
 
         if (msg.type === "poll") {
             try {
-                const result: any = await doPoll();
+                const result: any = await doPoll(msg.settings || {});
                 ws!.send(
                     JSON.stringify({
                         type: "poll_result",
@@ -266,7 +467,6 @@ function connectWS() {
         console.log("Disconnected from Manager");
         ws = null;
 
-        // Exponential backoff
         wsRetryCount++;
         const delay = Math.min(1000 * Math.pow(2, wsRetryCount), MAX_WS_RETRY_DELAY);
         console.log(`Reconnecting in ${delay}ms (retry ${wsRetryCount})...`);
