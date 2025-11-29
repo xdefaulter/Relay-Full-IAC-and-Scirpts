@@ -16,6 +16,9 @@ RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
 COPY package*.json ./
 RUN npm install
 
+# Install Playwright system dependencies as root
+RUN npx playwright install-deps chromium
+
 # Copy application code
 COPY . .
 RUN npm run build
@@ -26,7 +29,7 @@ RUN chown -R pptruser:pptruser /app
 # Switch to pptruser
 USER pptruser
 
-# Install Playwright browsers as pptruser
-RUN npx playwright install --with-deps chromium
+# Install Playwright browsers as pptruser (without system deps since we already installed them)
+RUN npx playwright install chromium
 
 CMD ["sh", "-c", "Xvfb :99 -screen 0 1280x1024x24 & export DISPLAY=:99 && npm start"]
