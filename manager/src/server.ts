@@ -6,8 +6,18 @@ import { NodeInfo, Load, LogEntry } from "./types";
 import { config, defaultSearchSettings } from "./config";
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+    origin: process.env.CORS_ORIGIN || "*", // Default to * if not set, but should be set in prod
+    methods: ["GET", "POST"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+}));
+app.use(express.json({ limit: '1mb' })); // Limit payload size
+
+// WebSocket authentication secret from environment
+const WS_SECRET = process.env.WS_SECRET || "";
+if (!WS_SECRET) {
+    console.warn("WARNING: WS_SECRET not set! WebSocket connections are not authenticated!");
+}
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/agent" });
@@ -24,6 +34,16 @@ function log(entry: LogEntry) {
 }
 
 wss.on("connection", (ws, req) => {
+    // Authenticate WebSocket connection via query parameter
+    const url = new URL(req.url || "", `ws://localhost`);
+    const token = url.searchParams.get("token");
+
+    if (WS_SECRET && token !== WS_SECRET) {
+        console.warn("Unauthorized WebSocket connection attempt");
+        ws.close(1008, "Unauthorized");
+        return;
+    }
+
     let nodeId: string | null = null;
 
     ws.on("message", (data) => {
@@ -84,6 +104,33 @@ wss.on("connection", (ws, req) => {
     });
 });
 
+// Simple rate limiting state
+const requestCounts = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW_MS = 60000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 100;
+
+function rateLimitMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
+    const ip = req.ip || req.socket.remoteAddress || "unknown";
+    const now = Date.now();
+
+    let clientData = requestCounts.get(ip);
+    if (!clientData || now > clientData.resetTime) {
+        clientData = { count: 0, resetTime: now + RATE_LIMIT_WINDOW_MS };
+        requestCounts.set(ip, clientData);
+    }
+
+    clientData.count++;
+
+    if (clientData.count > RATE_LIMIT_MAX_REQUESTS) {
+        return res.status(429).json({ error: "Too many requests" });
+    }
+
+    next();
+}
+
+// Apply rate limiting to API routes
+app.use('/api/', rateLimitMiddleware);
+
 // Robust scheduler
 const pendingPolls = new Set<string>();
 
@@ -141,20 +188,47 @@ app.get("/api/nodes", (_req, res) => {
     res.json({ nodes: Array.from(nodes.values()) });
 });
 
-app.get("/api/loads", (_req, res) => {
-    res.json({ loads: loads.slice(-200).reverse() });
+app.get("/api/loads", (req, res) => {
+    const limit = Math.min(parseInt(req.query.limit as string) || 200, 1000);
+    res.json({ loads: loads.slice(-limit).reverse() });
 });
 
-app.get("/api/logs", (_req, res) => {
-    res.json({ logs: logs.slice(-300).reverse() });
+app.get("/api/logs", (req, res) => {
+    const limit = Math.min(parseInt(req.query.limit as string) || 300, 1000);
+    res.json({ logs: logs.slice(-limit).reverse() });
 });
 
 app.get("/api/config", (_req, res) => {
     res.json(config);
 });
 
+// Health check endpoint
+app.get("/health", (_req, res) => {
+    const health = {
+        status: "OK",
+        uptime: process.uptime(),
+        timestamp: Date.now(),
+        nodes: nodes.size,
+        wsConnections: nodeSockets.size,
+        memory: process.memoryUsage(),
+    };
+    res.json(health);
+});
+
+// Readiness check
+app.get("/ready", (_req, res) => {
+    if (nodes.size > 0 && Array.from(nodes.values()).some(n => n.status !== "UNKNOWN")) {
+        res.status(200).json({ ready: true, nodes: nodes.size });
+    } else {
+        res.status(503).json({ ready: false, reason: "No active workers connected" });
+    }
+});
+
 const port = process.env.PORT || 3000;
 const wsPort = process.env.WS_PORT || 8080;
+
 server.listen(wsPort, () => {
     console.log(`HTTP+WS server listening on ${wsPort}`);
+    console.log(`Health check available at http://localhost:${wsPort}/health`);
+    console.log(`WebSocket auth: ${WS_SECRET ? 'ENABLED' : 'DISABLED (WARNING!)'}`);
 });

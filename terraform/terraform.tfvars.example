@@ -1,0 +1,29 @@
+# Relay Cluster Terraform Variables
+# Copy this file to terraform.tfvars and fill in your values
+
+# AWS Region for deployment
+region = "ca-west-1"
+
+# Name of your SSH key pair in AWS (must exist in the region)
+# Create with: aws ec2 create-key-pair --key-name relay-cluster-key --region ca-west-1
+ssh_key_name = "relay-cluster-key"
+
+# Number of worker instances to create (each runs one browser automation agent)
+worker_count = 3
+
+# Environment name for tagging
+environment = "production"
+
+# CIDR block for SSH access to worker instances
+# Examples:
+#   - Your office IP: "203.0.113.10/32"
+#   - Your VPN range: "10.20.30.0/24"
+#   - Disable SSH: "" (empty string - recommended if using AWS Session Manager)
+admin_ssh_cidr = ""
+
+# WebSocket authentication secret (REQUIRED for security)
+# Generate a strong random secret:
+#   openssl rand -base64 32
+# or
+#   python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+ws_authentication_secret = "CHANGE_THIS_TO_A_SECURE_RANDOM_VALUE"

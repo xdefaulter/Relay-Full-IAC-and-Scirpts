@@ -3,6 +3,11 @@ import puppeteer, { Browser, Page } from "puppeteer";
 
 const MANAGER_WS_URL = process.env.MANAGER_WS_URL!;
 const NODE_ID = process.env.NODE_ID || `worker-${Math.random().toString(36).slice(2)}`;
+const WS_SECRET = process.env.WS_SECRET || "";
+
+if (!WS_SECRET) {
+    console.warn("WARNING: WS_SECRET not set! Connection may be rejected by manager.");
+}
 
 let ws: WebSocket | null = null;
 let browser: Browser | null = null;
@@ -120,7 +125,12 @@ function sendToManager(msg: any) {
 let heartbeatInterval: NodeJS.Timeout | null = null;
 
 function connectWs() {
-    ws = new WebSocket(MANAGER_WS_URL);
+    // Add authentication token to WebSocket URL
+    const wsUrl = WS_SECRET
+        ? `${MANAGER_WS_URL}?token=${encodeURIComponent(WS_SECRET)}`
+        : MANAGER_WS_URL;
+
+    ws = new WebSocket(wsUrl);
     ws.on("open", () => {
         console.log("Connected to manager");
         wsRetryCount = 0;
@@ -128,7 +138,7 @@ function connectWs() {
 
         // Clear any existing interval just in case
         if (heartbeatInterval) clearInterval(heartbeatInterval);
-        
+
         heartbeatInterval = setInterval(() => {
             sendToManager({ type: "heartbeat", ts: Date.now() });
         }, 10000);
@@ -141,7 +151,7 @@ function connectWs() {
     });
     ws.on("close", () => {
         console.log("WS closed, reconnecting...");
-        
+
         if (heartbeatInterval) {
             clearInterval(heartbeatInterval);
             heartbeatInterval = null;
