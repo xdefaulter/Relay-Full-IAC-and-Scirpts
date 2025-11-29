@@ -67,6 +67,18 @@ async function startChrome() {
         page.on('pageerror', err => console.log('PAGE ERROR:', err.toString()));
         page.on('requestfailed', request => console.log(`PAGE REQUEST FAILED: ${request.failure()?.errorText} ${request.url()}`));
 
+        // Set cookies if provided
+        const cookiesStr = process.env.RELAY_COOKIES;
+        if (cookiesStr) {
+            try {
+                const cookies = JSON.parse(cookiesStr);
+                await page.setCookie(...cookies);
+                console.log(`Restored ${cookies.length} cookies.`);
+            } catch (e) {
+                console.error("Failed to parse RELAY_COOKIES:", e);
+            }
+        }
+
         console.log("Navigating to relay.amazon.com/tours/loadboard...");
         try {
             await page.goto("https://relay.amazon.com/tours/loadboard", { waitUntil: "networkidle2", timeout: 60000 });
