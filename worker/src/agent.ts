@@ -19,6 +19,7 @@ const MAX_WS_RETRY_DELAY = 30000;
 async function startChrome() {
     browser = await puppeteer.launch({
         headless: true,
+        executablePath: "/usr/bin/google-chrome-stable",
         args: [
             "--no-sandbox",
             "--disable-dev-shm-usage",
