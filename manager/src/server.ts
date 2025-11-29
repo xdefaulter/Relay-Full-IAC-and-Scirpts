@@ -45,7 +45,6 @@ wss.on('headers', (headers, req) => {
 const nodes = new Map<string, NodeInfo>();
 const nodeSockets = new Map<string, WebSocket>();
 const loads: Load[] = [];
-const loads: Load[] = [];
 const logs: LogEntry[] = [];
 let pollingEnabled = true;
 
