@@ -18,7 +18,7 @@ const MAX_WS_RETRY_DELAY = 30000;
 
 async function startChrome() {
     browser = await puppeteer.launch({
-        headless: "new",
+        headless: true,
         args: [
             "--no-sandbox",
             "--disable-dev-shm-usage",
@@ -57,7 +57,7 @@ async function doPoll(settings?: any) {
     const safeSettings = sanitizeSettings(settings);
 
     try {
-        const loads: any[] = await page.evaluate((s) => {
+        const loads = await page.evaluate((s) => {
             return new Promise((resolve, reject) => {
                 window.postMessage({ type: "RELAY_POLL_NOW", settings: s }, "*");
                 const timeout = setTimeout(() => {
