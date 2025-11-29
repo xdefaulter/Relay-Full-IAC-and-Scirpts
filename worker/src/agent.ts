@@ -434,61 +434,44 @@ function connectWS() {
     ws.on("open", () => {
         console.log("Connected to Manager");
         wsRetryCount = 0;
-
-        ws!.send(
-            JSON.stringify({
-                type: "ready",
-                workerId: NODE_ID,
-            })
-        );
+        ws!.send(JSON.stringify({ type: "hello", nodeId: NODE_ID }));
+        console.log("Sent hello message");
     });
 
-    ws.on("message", async (data: Buffer) => {
-        const msg = JSON.parse(data.toString());
-        console.log("Received message type:", msg.type);
+    ws.on("message", async (data: any) => {
+        try {
+            console.log("Received WS message size:", data.toString().length);
+            const msg = JSON.parse(data.toString());
+            console.log("Received message type:", msg.type);
 
-        if (msg.type === "poll") {
-            try {
-                const result: any = await doPoll(msg.settings || {});
-                ws!.send(
-                    JSON.stringify({
-                        type: "poll_result",
-                        ...(result as object),
-                    })
-                );
-                failureStreak = 0;
-            } catch (err: any) {
-                console.error("Poll error:", err);
-                failureStreak++;
-                ws!.send(
-                    JSON.stringify({
-                        type: "poll_error",
-                        error: err.message || String(err),
-                    })
-                );
-
-                if (failureStreak >= 5) {
-                    console.error("Too many poll failures, restarting browser...");
-                    await cleanup();
-                    await startChrome();
-                    failureStreak = 0;
-                }
+            if (msg.type === "poll_now") {
+                console.log("Received poll_now command");
+                const result = await doPoll(msg.settings);
+                ws!.send(JSON.stringify({
+                    type: "poll_result",
+                    nodeId: NODE_ID,
+                    ok: result.ok,
+                    error: result.error,
+                    durationMs: result.duration,
+                    loads: result.workOpportunities
+                }));
             }
+        } catch (err) {
+            console.error("Error handling message:", err);
         }
     });
 
-    ws.on("close", () => {
-        console.log("Disconnected from Manager");
+    ws.on("close", (code: number, reason: Buffer) => {
+        console.log(`Disconnected from Manager. Code: ${code}, Reason: ${reason.toString()}`);
         ws = null;
-
+        const delay = Math.min(1000 * Math.pow(2, wsRetryCount), 30000);
+        console.log(`Reconnecting in ${delay}ms (retry ${wsRetryCount + 1})...`);
         wsRetryCount++;
-        const delay = Math.min(1000 * Math.pow(2, wsRetryCount), MAX_WS_RETRY_DELAY);
-        console.log(`Reconnecting in ${delay}ms (retry ${wsRetryCount})...`);
-        setTimeout(() => connectWS(), delay);
+        setTimeout(connectWS, delay);
     });
 
     ws.on("error", (err: Error) => {
-        console.error("WebSocket error:", err.message);
+        console.error("WebSocket error:", err);
     });
 }
 
