@@ -164,120 +164,107 @@ const pendingPolls = new Set<string>();
 
 function scheduleNextPoll() {
     setTimeout(() => {
-        setTimeout(() => {
-            if (!pollingEnabled) {
-                scheduleNextPoll();
-                return;
+        // Filter in place or create new array
+        let keepIdx = 0;
+        for (let i = 0; i < loads.length; i++) {
+            if (loads[i].createdAt > oneHourAgo) {
+                loads[keepIdx++] = loads[i];
             }
-
-            const now = Date.now();
-            const nodeList = Array.from(nodes.values()).sort((a, b) => a.nodeId.localeCompare(b.nodeId));
-
-            // Cleanup old loads periodically (every minute)
-            if (Math.random() < 0.05) { // ~once every 20 cycles if period is 3s
-                const oneHourAgo = now - 3600000;
-                const initialLen = loads.length;
-                // Filter in place or create new array
-                let keepIdx = 0;
-                for (let i = 0; i < loads.length; i++) {
-                    if (loads[i].createdAt > oneHourAgo) {
-                        loads[keepIdx++] = loads[i];
-                    }
-                }
-                loads.length = keepIdx;
-            }
+        }
+        loads.length = keepIdx;
+    }
 
             let scheduledCount = 0;
-            nodeList.forEach((node, idx) => {
-                const ws = nodeSockets.get(node.nodeId);
-                if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    nodeList.forEach((node, idx) => {
+        const ws = nodeSockets.get(node.nodeId);
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
-                // Don't schedule if already polling (basic overlap protection)
-                if (node.status === "POLLING" && node.lastPollAt && (now - node.lastPollAt < 30000)) {
-                    return;
-                }
+        // Don't schedule if already polling (basic overlap protection)
+        if (node.status === "POLLING" && node.lastPollAt && (now - node.lastPollAt < 30000)) {
+            return;
+        }
 
-                const delay = idx * config.staggerMs;
-                scheduledCount++;
+        const delay = idx * config.staggerMs;
+        scheduledCount++;
 
-                setTimeout(() => {
-                    if (ws.readyState !== WebSocket.OPEN) return;
-                    node.status = "POLLING";
-                    ws.send(JSON.stringify({ type: "poll_now", ts: Date.now(), settings: defaultSearchSettings }));
-                }, delay);
-            });
+        setTimeout(() => {
+            if (ws.readyState !== WebSocket.OPEN) return;
+            node.status = "POLLING";
+            ws.send(JSON.stringify({ type: "poll_now", ts: Date.now(), settings: defaultSearchSettings }));
+        }, delay);
+    });
 
-            // Schedule next cycle based on period, but ensure we don't drift too fast
-            // If total stagger is long, we might want to wait longer? 
-            // For now, stick to periodMs but respect the loop.
-            scheduleNextPoll();
-        }, config.periodMs);
+    // Schedule next cycle based on period, but ensure we don't drift too fast
+    // If total stagger is long, we might want to wait longer? 
+    // For now, stick to periodMs but respect the loop.
+    scheduleNextPoll();
+}, config.periodMs);
     }
 
 // Start the scheduler
 scheduleNextPoll();
 
-    // REST API for frontend
-    app.get("/api/nodes", (_req, res) => {
-        res.json({ nodes: Array.from(nodes.values()) });
-    });
+// REST API for frontend
+app.get("/api/nodes", (_req, res) => {
+    res.json({ nodes: Array.from(nodes.values()) });
+});
 
-    app.get("/api/loads", (req, res) => {
-        const limit = Math.min(parseInt((req.query.limit as string) || "200"), 1000);
-        res.json({ loads: loads.slice(-limit).reverse() });
-    });
+app.get("/api/loads", (req, res) => {
+    const limit = Math.min(parseInt((req.query.limit as string) || "200"), 1000);
+    res.json({ loads: loads.slice(-limit).reverse() });
+});
 
-    app.get("/api/logs", (req, res) => {
-        const limit = Math.min(parseInt((req.query.limit as string) || "300"), 1000);
-        res.json({ logs: logs.slice(-limit) });
-    });
+app.get("/api/logs", (req, res) => {
+    const limit = Math.min(parseInt((req.query.limit as string) || "300"), 1000);
+    res.json({ logs: logs.slice(-limit) });
+});
 
-    // Polling control
-    // pollingEnabled is defined at top of file
+// Polling control
+// pollingEnabled is defined at top of file
 
-    app.post("/api/start", (req, res) => {
-        pollingEnabled = true;
-        console.log("Polling started via API");
-        res.json({ status: "started" });
-    });
+app.post("/api/start", (req, res) => {
+    pollingEnabled = true;
+    console.log("Polling started via API");
+    res.json({ status: "started" });
+});
 
-    app.post("/api/stop", (req, res) => {
-        pollingEnabled = false;
-        console.log("Polling stopped via API");
-        res.json({ status: "stopped" });
-    });
+app.post("/api/stop", (req, res) => {
+    pollingEnabled = false;
+    console.log("Polling stopped via API");
+    res.json({ status: "stopped" });
+});
 
-    app.get("/api/config", (_req, res) => {
-        res.json({ ...config, pollingEnabled });
-    });
+app.get("/api/config", (_req, res) => {
+    res.json({ ...config, pollingEnabled });
+});
 
-    // Health check endpoint
-    app.get("/health", (_req, res) => {
-        const health = {
-            status: "OK",
-            uptime: process.uptime(),
-            timestamp: Date.now(),
-            nodes: nodes.size,
-            wsConnections: nodeSockets.size,
-            memory: process.memoryUsage(),
-        };
-        res.json(health);
-    });
+// Health check endpoint
+app.get("/health", (_req, res) => {
+    const health = {
+        status: "OK",
+        uptime: process.uptime(),
+        timestamp: Date.now(),
+        nodes: nodes.size,
+        wsConnections: nodeSockets.size,
+        memory: process.memoryUsage(),
+    };
+    res.json(health);
+});
 
-    // Readiness check
-    app.get("/ready", (_req, res) => {
-        if (nodes.size > 0 && Array.from(nodes.values()).some(n => n.status !== "UNKNOWN")) {
-            res.status(200).json({ ready: true, nodes: nodes.size });
-        } else {
-            res.status(503).json({ ready: false, reason: "No active workers connected" });
-        }
-    });
+// Readiness check
+app.get("/ready", (_req, res) => {
+    if (nodes.size > 0 && Array.from(nodes.values()).some(n => n.status !== "UNKNOWN")) {
+        res.status(200).json({ ready: true, nodes: nodes.size });
+    } else {
+        res.status(503).json({ ready: false, reason: "No active workers connected" });
+    }
+});
 
-    const port = process.env.PORT || 3000;
-    const wsPort = process.env.WS_PORT || 8080;
+const port = process.env.PORT || 3000;
+const wsPort = process.env.WS_PORT || 8080;
 
-    server.listen(wsPort, () => {
-        console.log(`HTTP+WS server listening on ${wsPort}`);
-        console.log(`Health check available at http://localhost:${wsPort}/health`);
-        console.log(`WebSocket auth: ${WS_SECRET ? 'ENABLED' : 'DISABLED (WARNING!)'}`);
-    });
+server.listen(wsPort, () => {
+    console.log(`HTTP+WS server listening on ${wsPort}`);
+    console.log(`Health check available at http://localhost:${wsPort}/health`);
+    console.log(`WebSocket auth: ${WS_SECRET ? 'ENABLED' : 'DISABLED (WARNING!)'}`);
+});
