@@ -6,7 +6,12 @@ echo "Starting repair..."
 # Fetch Secret
 export WS_SECRET=$(aws ssm get-parameter --name "/relay/ws_secret" --region "us-east-1" --with-decryption --query "Parameter.Value" --output text)
 
-# 1. Frontend
+# 1. Update Code
+echo "Pulling latest code..."
+cd /opt/relay-cluster
+git pull
+
+# 2. Frontend
 echo "Building Frontend..."
 cd /opt/relay-cluster/frontend
 docker build -t relay-frontend .
@@ -24,6 +29,7 @@ docker run -d \
 # 2. Manager (Fixing health check port and removing 3000 mapping)
 echo "Building Manager..."
 cd /opt/relay-cluster/manager
+docker build -t relay-manager .
 docker stop relay-manager || true
 docker rm relay-manager || true
 docker run -d \

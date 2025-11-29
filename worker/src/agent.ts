@@ -33,6 +33,7 @@ async function startChrome() {
                 "--load-extension=/opt/relay-extension",
                 "--user-data-dir=/data/chrome-profile",
             ],
+            dumpio: true,
         });
         console.log("Browser launched, creating page...");
         page = await browser.newPage();
