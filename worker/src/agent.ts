@@ -46,7 +46,7 @@ async function startChrome() {
 
     try {
         browser = await puppeteer.launch({
-            headless: "new" as any, // Cast to any to bypass TS check for newer Puppeteer versions
+            headless: false, // Running with Xvfb virtual display
             executablePath: "/usr/bin/google-chrome-stable",
             args: [
                 "--no-sandbox",
