@@ -129,7 +129,7 @@ export const App: React.FC = () => {
                             <tr key={l.id + l.createdAt} style={{ borderBottom: '1px solid #eee' }}>
                                 <td>{l.sourceNodeId}</td>
                                 <td>{l.lane}</td>
-                                <td>{l.payout}</td>
+                                <td>{typeof l.payout === 'object' && l.payout !== null && 'value' in l.payout ? `${(l.payout as any).value} ${(l.payout as any).unit || ''}` : l.payout}</td>
                                 <td>{l.pickupTime}</td>
                                 <td>{new Date(l.createdAt).toLocaleTimeString()}</td>
                             </tr>
