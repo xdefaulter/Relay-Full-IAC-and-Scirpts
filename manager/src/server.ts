@@ -164,42 +164,53 @@ const pendingPolls = new Set<string>();
 
 function scheduleNextPoll() {
     setTimeout(() => {
-        // Filter in place or create new array
-        let keepIdx = 0;
-        for (let i = 0; i < loads.length; i++) {
-            if (loads[i].createdAt > oneHourAgo) {
-                loads[keepIdx++] = loads[i];
-            }
-        }
-        loads.length = keepIdx;
-    }
-
-            let scheduledCount = 0;
-    nodeList.forEach((node, idx) => {
-        const ws = nodeSockets.get(node.nodeId);
-        if (!ws || ws.readyState !== WebSocket.OPEN) return;
-
-        // Don't schedule if already polling (basic overlap protection)
-        if (node.status === "POLLING" && node.lastPollAt && (now - node.lastPollAt < 30000)) {
+        if (!pollingEnabled) {
+            scheduleNextPoll();
             return;
         }
 
-        const delay = idx * config.staggerMs;
-        scheduledCount++;
+        const now = Date.now();
+        const nodeList = Array.from(nodes.values()).sort((a, b) => a.nodeId.localeCompare(b.nodeId));
 
-        setTimeout(() => {
-            if (ws.readyState !== WebSocket.OPEN) return;
-            node.status = "POLLING";
-            ws.send(JSON.stringify({ type: "poll_now", ts: Date.now(), settings: defaultSearchSettings }));
-        }, delay);
-    });
+        // Cleanup old loads periodically (every minute)
+        if (Math.random() < 0.05) { // ~once every 20 cycles if period is 3s
+            const oneHourAgo = now - 3600000;
+            const initialLen = loads.length;
+            // Filter in place or create new array
+            let keepIdx = 0;
+            for (let i = 0; i < loads.length; i++) {
+                if (loads[i].createdAt > oneHourAgo) {
+                    loads[keepIdx++] = loads[i];
+                }
+            }
+            loads.length = keepIdx;
+        }
 
-    // Schedule next cycle based on period, but ensure we don't drift too fast
-    // If total stagger is long, we might want to wait longer? 
-    // For now, stick to periodMs but respect the loop.
-    scheduleNextPoll();
-}, config.periodMs);
-    }
+        let scheduledCount = 0;
+        nodeList.forEach((node, idx) => {
+            const ws = nodeSockets.get(node.nodeId);
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+            // Don't schedule if already polling (basic overlap protection)
+            if (node.status === "POLLING" && node.lastPollAt && (now - node.lastPollAt < 30000)) {
+                return;
+            }
+
+            const delay = idx * config.staggerMs;
+            scheduledCount++;
+
+            setTimeout(() => {
+                if (ws.readyState !== WebSocket.OPEN) return;
+                node.status = "POLLING";
+                ws.send(JSON.stringify({ type: "poll_now", ts: Date.now(), settings: defaultSearchSettings }));
+            }, delay);
+        });
+
+        // Schedule next cycle based on period, but ensure we don't drift too fast
+        // For now, stick to periodMs but respect the loop.
+        scheduleNextPoll();
+    }, config.periodMs);
+}
 
 // Start the scheduler
 scheduleNextPoll();
