@@ -46,10 +46,9 @@ async function startChrome() {
 
     try {
         browser = await puppeteer.launch({
-            headless: false, // Required for extensions in headless mode
+            headless: "new", // Use native new headless mode
             executablePath: "/usr/bin/google-chrome-stable",
             args: [
-                "--headless=new", // Run in new headless mode
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
                 "--disable-gpu",
