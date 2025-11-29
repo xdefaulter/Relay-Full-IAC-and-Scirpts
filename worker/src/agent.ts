@@ -68,7 +68,15 @@ async function startChrome() {
         page.on('requestfailed', request => console.log(`PAGE REQUEST FAILED: ${request.failure()?.errorText} ${request.url()}`));
 
         // Set cookies if provided
-        const cookiesStr = process.env.RELAY_COOKIES;
+        let cookiesStr = process.env.RELAY_COOKIES;
+        if (process.env.RELAY_COOKIES_B64) {
+            try {
+                cookiesStr = Buffer.from(process.env.RELAY_COOKIES_B64, 'base64').toString('utf-8');
+            } catch (e) {
+                console.error("Failed to decode RELAY_COOKIES_B64:", e);
+            }
+        }
+
         if (cookiesStr) {
             try {
                 const cookies = JSON.parse(cookiesStr);

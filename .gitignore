@@ -7,3 +7,4 @@ coverage
 *.tfstate
 *.tfstate.backup
 terraform/terraform.tfvars
+Untitled-1.json
