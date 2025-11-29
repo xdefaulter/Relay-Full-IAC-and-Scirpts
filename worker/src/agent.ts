@@ -18,8 +18,32 @@ let failureStreak = 0;
 let wsRetryCount = 0;
 const MAX_WS_RETRY_DELAY = 30000;
 
+import { execSync } from "child_process";
+import fs from "fs";
+import path from "path";
+
+// ... (existing imports)
+
 async function startChrome() {
     console.log("Starting Chrome...");
+
+    // Cleanup previous instances
+    try {
+        try {
+            execSync("pkill -f google-chrome-stable");
+        } catch (e) {
+            // Ignore if no process found
+        }
+
+        const userDataDir = "/home/pptruser/chrome-profile";
+        const lockFile = path.join(userDataDir, "SingletonLock");
+        if (fs.existsSync(lockFile)) {
+            fs.unlinkSync(lockFile);
+        }
+    } catch (e) {
+        console.warn("Cleanup warning:", e);
+    }
+
     try {
         browser = await puppeteer.launch({
             headless: true,
