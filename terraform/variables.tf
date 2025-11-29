@@ -33,3 +33,15 @@ variable "ws_authentication_secret" {
   description = "Shared secret for WebSocket authentication between manager and workers"
 }
 
+variable "relay_username" {
+  type        = string
+  default     = ""
+  description = "Username for Relay login"
+}
+
+variable "relay_password" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "Password for Relay login"
+}

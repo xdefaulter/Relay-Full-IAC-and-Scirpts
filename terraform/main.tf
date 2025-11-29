@@ -191,23 +191,6 @@ resource "aws_iam_instance_profile" "ec2_profile" {
   role = aws_iam_role.ec2_ssm_role.name
 }
 
-variable "admin_ssh_cidr" {
-  description = "CIDR block allowed to SSH into manager"
-  type        = string
-}
-
-variable "relay_username" {
-  description = "Username for Relay login"
-  type        = string
-  default     = ""
-}
-
-variable "relay_password" {
-  description = "Password for Relay login"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
 
 # Store WS Secret in SSM Parameter Store
 resource "aws_ssm_parameter" "ws_secret" {
@@ -278,6 +261,13 @@ resource "aws_instance" "worker" {
     http_tokens                 = "required"
     http_put_response_hop_limit = 1
     instance_metadata_tags      = "enabled"
+  }
+
+  # Increase root volume size for Docker builds
+  root_block_device {
+    volume_size           = 16
+    volume_type           = "gp3"
+    delete_on_termination = true
   }
 
   tags = {
