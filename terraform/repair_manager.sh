@@ -4,7 +4,7 @@ set -ex
 echo "Starting repair..."
 
 # Fetch Secret
-export WS_SECRET=$(aws ssm get-parameter --name "/relay/ws_secret" --region "us-east-1" --with-decryption --query "Parameter.Value" --output text)
+export WS_SECRET=$(aws ssm get-parameter --name "/relay/ws_secret" --region "us-east-1" --with-decryption --query "Parameter.Value" --output text | tr -d '\n')
 
 # 1. Update Code
 echo "Pulling latest code..."

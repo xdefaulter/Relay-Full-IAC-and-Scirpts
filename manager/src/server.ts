@@ -39,7 +39,7 @@ wss.on("connection", (ws, req) => {
     const token = url.searchParams.get("token");
 
     if (WS_SECRET && token !== WS_SECRET) {
-        console.warn("Unauthorized WebSocket connection attempt");
+        console.warn(`Unauthorized WebSocket connection attempt. Received: '${token}', Expected: '${WS_SECRET}'`);
         ws.close(1008, "Unauthorized");
         return;
     }

@@ -28,7 +28,7 @@ for IP in "${WORKER_IPS[@]}"; do
     export RELAY_COOKIES_B64=\"$COOKIES_B64\"
     
     # Fetch Secret
-    export WS_SECRET=\$(aws ssm get-parameter --name \"/relay/ws_secret\" --region \"us-east-1\" --with-decryption --query \"Parameter.Value\" --output text)
+    export WS_SECRET=\$(aws ssm get-parameter --name \"/relay/ws_secret\" --region \"us-east-1\" --with-decryption --query \"Parameter.Value\" --output text | tr -d '\n')
     echo \"Secret fetched. Length: \${#WS_SECRET}\"
     
     # 2. Pull latest code
