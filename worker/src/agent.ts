@@ -57,14 +57,14 @@ async function startChrome() {
                 "--load-extension=/opt/relay-extension",
                 "--user-data-dir=/home/pptruser/chrome-profile",
             ],
-            dumpio: true,
+            dumpio: false,
         });
         console.log("Browser launched, creating page...");
         page = await browser.newPage();
         console.log("Navigating to relay.amazon.com...");
         try {
             await page.goto("https://relay.amazon.com", { waitUntil: "networkidle2", timeout: 60000 });
-            console.log("Navigation complete.");
+            console.log("Navigation complete. Current URL:", page.url());
 
             // Login Logic
             if (page.url().includes("login") || page.url().includes("signin")) {
