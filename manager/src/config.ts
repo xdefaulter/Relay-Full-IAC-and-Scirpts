@@ -1,7 +1,7 @@
 import { PollingConfig, SearchSettings } from "./types";
 
 export const config: PollingConfig = {
-    periodMs: parseInt(process.env.PERIOD_MS || "1000", 10),
+    periodMs: parseInt(process.env.PERIOD_MS || "5000", 10),
     staggerMs: parseInt(process.env.STAGGER_MS || "100", 10),
 };
 

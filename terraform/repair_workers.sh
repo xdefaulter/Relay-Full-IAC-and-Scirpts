@@ -9,7 +9,8 @@ for IP in "${WORKER_IPS[@]}"; do
     echo "Updating Worker: $IP"
     echo "--------------------------------------------------"
     
-    ssh -i "$KEY_PATH" -o StrictHostKeyChecking=no ubuntu@$IP << 'EOF'
+    # Pass local env vars to remote session
+    ssh -i "$KEY_PATH" -o StrictHostKeyChecking=no ubuntu@$IP "RELAY_USERNAME='$RELAY_USERNAME' RELAY_PASSWORD='$RELAY_PASSWORD' bash -s" << 'EOF'
         set -e
         # Fetch Secret
         export WS_SECRET=$(aws ssm get-parameter --name "/relay/ws_secret" --region "us-east-1" --with-decryption --query "Parameter.Value" --output text)
