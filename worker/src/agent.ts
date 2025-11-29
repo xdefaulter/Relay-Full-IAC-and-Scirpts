@@ -398,15 +398,21 @@ async function doPoll(settings: RelaySettings) {
                 console.warn("Auth error (401/403), clearing cached CSRF token");
                 cachedCsrfToken = null;
             }
-            throw new Error(`Search failed: ${result.status} - ${result.error}`);
+            // Do not throw, return the error result so it can be sent to manager
+            console.warn(`Search failed: ${result.status} - ${result.error}`);
+            return result;
         }
 
         console.log(`Poll success: ${result.workOpportunities.length} loads found in ${Math.round(result.duration || 0)}ms`);
         return result;
 
-    } catch (err) {
+    } catch (err: any) {
         console.error("Poll execution error:", err);
-        throw err;
+        return {
+            ok: false,
+            error: err.message || String(err),
+            status: 0
+        };
     }
 }
 

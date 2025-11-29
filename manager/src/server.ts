@@ -92,7 +92,11 @@ wss.on("connection", (ws, req) => {
                     n.lastPollAt = Date.now();
                     n.lastPollDurationMs = msg.durationMs || null;
                     n.status = msg.ok ? "IDLE" : "ERROR";
-                    if (!msg.ok) n.lastError = msg.error;
+                    if (!msg.ok) {
+                        n.lastError = msg.error;
+                    } else {
+                        n.lastError = undefined;
+                    }
                 }
                 log({
                     ts: Date.now(),

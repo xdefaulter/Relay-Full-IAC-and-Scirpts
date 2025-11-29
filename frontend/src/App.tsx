@@ -31,7 +31,7 @@ export const App: React.FC = () => {
     const [nodes, setNodes] = useState<NodeInfo[]>([]);
     const [loads, setLoads] = useState<Load[]>([]);
     const [logs, setLogs] = useState<LogEntry[]>([]);
-    const [config, setConfig] = useState<{ periodMs: number; staggerMs: number } | null>(null);
+    const [config, setConfig] = useState<{ periodMs: number; staggerMs: number; pollingEnabled: boolean } | null>(null);
 
     // Filter states
     const [filterLevel, setFilterLevel] = useState<string>("ALL");
@@ -81,7 +81,13 @@ export const App: React.FC = () => {
                 <h1>Relay Pulse Manager</h1>
                 {config && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <span>Period: {config.periodMs}ms | Stagger: {config.staggerMs}ms</span>
+                        <span>
+                            Period: {config.periodMs}ms |
+                            Stagger: {config.staggerMs}ms |
+                            Status: <strong style={{ color: config.pollingEnabled ? 'green' : 'red' }}>
+                                {config.pollingEnabled ? 'RUNNING' : 'STOPPED'}
+                            </strong>
+                        </span>
                         <div className="controls">
                             <button onClick={() => fetch(`${API_BASE}/api/start`, { method: 'POST' })}>Start Polling</button>
                             <button onClick={() => fetch(`${API_BASE}/api/stop`, { method: 'POST' })}>Stop Polling</button>
