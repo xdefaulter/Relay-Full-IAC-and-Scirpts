@@ -16,10 +16,13 @@ for IP in "${WORKER_IPS[@]}"; do
         export WS_SECRET=$(aws ssm get-parameter --name "/relay/ws_secret" --region "us-east-1" --with-decryption --query "Parameter.Value" --output text)
         echo "Secret fetched. Length: ${#WS_SECRET}"
         
+        # 2. Pull latest code
         echo "Pulling latest code..."
         cd /opt/relay-cluster
+        sudo git config --global --add safe.directory /opt/relay-cluster
         sudo git pull
         
+        # 3. Rebuild Worker Image
         echo "Rebuilding Worker..."
         cd worker
         sudo docker build -t relay-worker .

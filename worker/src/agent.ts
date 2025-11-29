@@ -73,17 +73,24 @@ async function startChrome() {
                     try {
                         // Wait for email input
                         const emailSel = "#ap_email";
-                        await page.waitForSelector(emailSel, { timeout: 5000 });
+                        await page.waitForSelector(emailSel, { timeout: 10000 });
                         await page.type(emailSel, USERNAME);
+
+                        // Click Continue if it exists (for 2-step login)
+                        const continueSel = "#continue";
+                        if (await page.$(continueSel) !== null) {
+                            console.log("Clicking Continue button...");
+                            await page.click(continueSel);
+                        }
 
                         // Password
                         const passSel = "#ap_password";
-                        await page.waitForSelector(passSel, { timeout: 5000 });
+                        await page.waitForSelector(passSel, { timeout: 10000 });
                         await page.type(passSel, PASSWORD);
 
                         // Submit
                         const submitSel = "#signInSubmit";
-                        await page.waitForSelector(submitSel, { timeout: 5000 });
+                        await page.waitForSelector(submitSel, { timeout: 10000 });
                         await page.click(submitSel);
 
                         console.log("Credentials submitted. Waiting for navigation...");
