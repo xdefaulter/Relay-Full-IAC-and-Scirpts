@@ -1,8 +1,8 @@
 import { PollingConfig, SearchSettings } from "./types";
 
 export const config: PollingConfig = {
-    periodMs: parseInt(process.env.PERIOD_MS || "100", 10),
-    staggerMs: parseInt(process.env.STAGGER_MS || "100", 10),
+    periodMs: parseInt(process.env.PERIOD_MS || "400", 10), // Default 400ms = 2.5Hz max frequency
+    staggerMs: parseInt(process.env.STAGGER_MS || "200", 10),
 };
 
 export const defaultSearchSettings: SearchSettings = {

@@ -207,9 +207,10 @@ function scheduleNextPoll() {
         });
 
         // Schedule next cycle based on period, but ensure we don't drift too fast
-        // For now, stick to periodMs but respect the loop.
-        scheduleNextPoll();
-    }, config.periodMs);
+        // Enforce minimum period of 400ms (2.5Hz) to comply with rate limits
+        const safePeriod = Math.max(config.periodMs, 400);
+        setTimeout(scheduleNextPoll, safePeriod);
+    }, 0); // Execute immediately, the delay is handled by the recursive call
 }
 
 // Start the scheduler
