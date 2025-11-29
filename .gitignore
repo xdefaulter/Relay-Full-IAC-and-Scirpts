@@ -6,3 +6,4 @@ coverage
 .terraform
 *.tfstate
 *.tfstate.backup
+terraform/terraform.tfvars

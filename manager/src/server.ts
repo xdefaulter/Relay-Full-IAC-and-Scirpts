@@ -51,15 +51,17 @@ wss.on("connection", (ws, req) => {
             const msg = JSON.parse(data.toString());
             if (msg.type === "hello") {
                 nodeId = msg.nodeId;
-                nodeSockets.set(nodeId, ws);
-                nodes.set(nodeId, {
-                    nodeId,
-                    status: "IDLE",
-                    lastHeartbeat: Date.now(),
-                    lastPollAt: null,
-                    lastPollDurationMs: null,
-                });
-                log({ ts: Date.now(), level: "info", nodeId, message: "Agent connected" });
+                if (nodeId) {
+                    nodeSockets.set(nodeId, ws);
+                    nodes.set(nodeId, {
+                        nodeId,
+                        status: "IDLE",
+                        lastHeartbeat: Date.now(),
+                        lastPollAt: null,
+                        lastPollDurationMs: null,
+                    });
+                    log({ ts: Date.now(), level: "info", nodeId, message: "Agent connected" });
+                }
             } else if (msg.type === "heartbeat" && nodeId) {
                 const n = nodes.get(nodeId);
                 if (n) n.lastHeartbeat = Date.now();
@@ -189,12 +191,12 @@ app.get("/api/nodes", (_req, res) => {
 });
 
 app.get("/api/loads", (req, res) => {
-    const limit = Math.min(parseInt(req.query.limit as string) || 200, 1000);
+    const limit = Math.min(parseInt((req.query.limit as string) || "200"), 1000);
     res.json({ loads: loads.slice(-limit).reverse() });
 });
 
 app.get("/api/logs", (req, res) => {
-    const limit = Math.min(parseInt(req.query.limit as string) || 300, 1000);
+    const limit = Math.min(parseInt((req.query.limit as string) || "300"), 1000);
     res.json({ logs: logs.slice(-limit).reverse() });
 });
 

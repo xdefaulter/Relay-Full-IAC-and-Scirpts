@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.6.0"
+  required_version = ">= 1.5.7"
   
   # Uncomment after creating S3 bucket and DynamoDB table for state locking
   # backend "s3" {
@@ -92,6 +92,18 @@ resource "aws_security_group" "manager_sg" {
     cidr_blocks = [aws_vpc.main.cidr_block]
   }
 
+  # SSH access - restrict to admin IPs only
+  dynamic "ingress" {
+    for_each = var.admin_ssh_cidr != "" ? [1] : []
+    content {
+      description = "SSH from admin"
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_blocks = [var.admin_ssh_cidr]
+    }
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -135,7 +147,7 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-}
+
 
 # IAM Role for EC2 Instances to access SSM
 resource "aws_iam_role" "ec2_ssm_role" {
