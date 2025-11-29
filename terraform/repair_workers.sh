@@ -34,11 +34,14 @@ for IP in "${WORKER_IPS[@]}"; do
     # 2. Pull latest code
     echo \"Pulling latest code...\"
     cd /opt/relay-cluster
+    sudo rm -f /root/.gitconfig.lock
+    sudo rm -f /opt/relay-cluster/.git/index.lock
     sudo git config --global --add safe.directory /opt/relay-cluster
     sudo git pull
     
     # 3. Rebuild Worker Image
     echo \"Rebuilding Worker...\"
+    sudo docker system prune -af --volumes
     cd worker
     sudo docker build -t relay-worker .
     

@@ -154,6 +154,15 @@ function buildSlimPayload(settings: RelaySettings, userAgent: string) {
     };
 }
 
+function mapSameSite(sameSite: string | undefined): "Strict" | "Lax" | "None" {
+    if (!sameSite) return "Lax";
+    const lower = sameSite.toLowerCase();
+    if (lower === "no_restriction" || lower === "none") return "None";
+    if (lower === "strict") return "Strict";
+    if (lower === "lax") return "Lax";
+    return "Lax";
+}
+
 async function startChrome() {
     console.log("Starting Chrome with Playwright...");
 
@@ -228,7 +237,7 @@ async function startChrome() {
                     expires: c.expires || -1,
                     httpOnly: c.httpOnly || false,
                     secure: c.secure || false,
-                    sameSite: c.sameSite || 'Lax'
+                    sameSite: mapSameSite(c.sameSite)
                 }));
                 await context.addCookies(playwrightCookies);
                 console.log(`Restored ${cookies.length} cookies.`);
@@ -239,7 +248,8 @@ async function startChrome() {
 
         console.log("Navigating to relay.amazon.com/tours/loadboard...");
         try {
-            await page.goto("https://relay.amazon.com/tours/loadboard", { waitUntil: "networkidle", timeout: 60000 });
+            // Use domcontentloaded instead of networkidle to avoid hanging on streaming/polling
+            await page.goto("https://relay.amazon.com/tours/loadboard", { waitUntil: "domcontentloaded", timeout: 60000 });
             console.log("Navigation complete. Current URL:", page.url());
 
             // Check for login redirect
