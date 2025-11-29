@@ -92,6 +92,15 @@ async function startChrome() {
             }
         }
 
+        // Check extensions
+        try {
+            await page.goto("chrome://extensions", { waitUntil: "networkidle2" });
+            const extensions = await page.evaluate(() => document.body.innerText);
+            console.log("EXTENSIONS PAGE CONTENT:", extensions);
+        } catch (e) {
+            console.log("Failed to check extensions page:", e);
+        }
+
         console.log("Navigating to relay.amazon.com/tours/loadboard...");
         try {
             await page.goto("https://relay.amazon.com/tours/loadboard", { waitUntil: "networkidle2", timeout: 60000 });
