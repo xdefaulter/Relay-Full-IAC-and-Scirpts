@@ -16,7 +16,7 @@ WORKDIR /app
 
 COPY package*.json ./
 ENV PUPPETEER_SKIP_DOWNLOAD=true
-RUN npm install
+RUN npm config set cache /tmp/.npm && npm install --prefer-offline --no-audit --no-fund
 
 COPY . .
 RUN npm run build
