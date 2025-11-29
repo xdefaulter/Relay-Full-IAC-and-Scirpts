@@ -1241,6 +1241,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return true;
 
     case "POLL_ONCE":
+      console.log("[SW] Received POLL_ONCE", msg.settings);
       respondAsync(poller.pollOnce(msg.settings), sendResponse);
       return true;
 

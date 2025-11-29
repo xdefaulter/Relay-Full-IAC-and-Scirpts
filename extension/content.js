@@ -49,11 +49,14 @@ window.addEventListener("message", async (event) => {
 
   // Handle Puppeteer poll request
   if (payload.type === "RELAY_POLL_NOW") {
+    console.log("[RelayContent] Received RELAY_POLL_NOW");
     try {
       // Ask background to perform a single poll
+      console.log("[RelayContent] Sending POLL_ONCE to BG");
       const response = await new Promise((resolve) => {
         chrome.runtime.sendMessage({ target: "bg", type: "POLL_ONCE", settings: payload.settings }, resolve);
       });
+      console.log("[RelayContent] Received BG response:", response);
 
       if (response && response.ok) {
         window.postMessage({ type: "RELAY_POLL_RESULT", loads: response.workOpportunities || [], duration: response.duration }, "*");
