@@ -80,8 +80,12 @@ export const App: React.FC = () => {
             <header>
                 <h1>Relay Pulse Manager</h1>
                 {config && (
-                    <div>
-                        Period: {config.periodMs}ms | Stagger: {config.staggerMs}ms
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <span>Period: {config.periodMs}ms | Stagger: {config.staggerMs}ms</span>
+                        <div className="controls">
+                            <button onClick={() => fetch(`${API_BASE}/api/start`, { method: 'POST' })}>Start Polling</button>
+                            <button onClick={() => fetch(`${API_BASE}/api/stop`, { method: 'POST' })}>Stop Polling</button>
+                        </div>
                     </div>
                 )}
             </header>

@@ -200,8 +200,23 @@ app.get("/api/logs", (req, res) => {
     res.json({ logs: logs.slice(-limit).reverse() });
 });
 
+// Polling control
+let pollingEnabled = true;
+
+app.post("/api/start", (req, res) => {
+    pollingEnabled = true;
+    console.log("Polling started via API");
+    res.json({ status: "started" });
+});
+
+app.post("/api/stop", (req, res) => {
+    pollingEnabled = false;
+    console.log("Polling stopped via API");
+    res.json({ status: "stopped" });
+});
+
 app.get("/api/config", (_req, res) => {
-    res.json(config);
+    res.json({ ...config, pollingEnabled });
 });
 
 // Health check endpoint
