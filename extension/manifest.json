@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Relay Auto",
+  "version": "1.0.0",
+  "permissions": ["storage", "webRequest", "offscreen", "nativeMessaging", "tabs"],
+  "host_permissions": ["https://relay.amazon.com/*"],
+  "optional_host_permissions": ["https://relay.amazon.com/*"],
+  "background": { "service_worker": "sw.js" },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Relay Auto"
+  },
+  "content_scripts": [{
+    "matches": ["https://relay.amazon.com/*"],
+    "js": ["content.js"],
+    "run_at": "document_start"
+  }],
+  "web_accessible_resources": [{
+    "resources": ["inpage.js"],
+    "matches": ["https://relay.amazon.com/*"]
+  }]
+}

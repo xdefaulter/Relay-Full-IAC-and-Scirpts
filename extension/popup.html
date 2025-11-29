@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Relay GUI</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="wrap">
+    <h1>Relay GUI</h1>
+
+    <section>
+      <label>Origin City</label>
+      <div class="grid2">
+        <input id="origin_name" placeholder="Name" />
+        <input id="origin_state" placeholder="StateCode" />
+      </div>
+      <div class="grid2">
+        <input id="origin_lat" placeholder="Latitude" type="number" step="0.00001" />
+        <input id="origin_lng" placeholder="Longitude" type="number" step="0.00001" />
+      </div>
+      <input id="origin_display" placeholder="Display (e.g., BRAMPTON, ON)" />
+    </section>
+
+    <section class="grid2">
+      <div><label>Radius (mi)</label><input id="radius" type="number" min="1" /></div>
+      <div><label>Result Size</label><input id="resultSize" type="number" min="1" max="200" /></div>
+    </section>
+
+    <section class="grid2">
+      <div><label>Min Payout</label><input id="minPayout" type="number" min="0" /></div>
+      <div><label>Max Distance</label><input id="maxDistance" type="number" min="1" /></div>
+    </section>
+
+    <section class="grid2">
+      <div><label>Poll Interval (ms)</label><input id="fastMs" type="number" min="2500" /></div>
+      <div><label>Phase Offset (ms)</label><input id="phaseMs" type="number" min="0" max="1000" /></div>
+    </section>
+
+    <section class="grid2">
+      <div><label>Start Delay (ms)</label><input id="startDelayMs" type="number" min="0" max="600000" /></div>
+      <div><label>Earliest Start (hours)</label><input id="earliestStartHours" type="number" min="0" max="72" step="0.25" /></div>
+    </section>
+
+    <section class="row" style="align-items:flex-end">
+      <label><input id="stopOnFirstLoad" type="checkbox" /> Stop on first load</label>
+    </section>
+
+    <div class="buttons">
+      <button id="save">Save</button>
+      <button id="start">Start</button>
+      <button id="stop">Stop</button>
+    </div>
+
+    <button id="grantAccess" class="ghost" hidden>Grant Chrome site access</button>
+
+    <div id="status" class="status">status: —</div>
+    <div class="hint">
+      Open: <code>https://relay.amazon.com/loadboard/search</code><br />
+      If Chrome hides the overlay, click “Grant Chrome site access”.
+    </div>
+    <a class="opt" href="options.html" target="_blank">Options…</a>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

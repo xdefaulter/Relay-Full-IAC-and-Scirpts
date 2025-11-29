@@ -1,0 +1,169 @@
+import WebSocket from "ws";
+import puppeteer, { Browser, Page } from "puppeteer";
+
+const MANAGER_WS_URL = process.env.MANAGER_WS_URL!;
+const NODE_ID = process.env.NODE_ID || `worker-${Math.random().toString(36).slice(2)}`;
+
+let ws: WebSocket | null = null;
+let browser: Browser | null = null;
+let page: Page | null = null;
+let failureStreak = 0;
+let wsRetryCount = 0;
+const MAX_WS_RETRY_DELAY = 30000;
+
+async function startChrome() {
+    browser = await puppeteer.launch({
+        headless: "new",
+        args: [
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--disable-setuid-sandbox",
+            "--disable-extensions-except=/opt/relay-extension",
+            "--load-extension=/opt/relay-extension",
+            "--user-data-dir=/data/chrome-profile",
+        ],
+    });
+    page = await browser.newPage();
+    await page.goto("https://relay.amazon.com", { waitUntil: "networkidle2" });
+}
+
+function sanitizeSettings(settings: any) {
+    if (!settings || typeof settings !== "object") return {};
+    // Whitelist only known safe primitives
+    const safe: any = {};
+    const allowedKeys = [
+        "origin", "radius", "resultSize", "minPayout", "maxDistance",
+        "fastMs", "stopOnFirstLoad", "autoBookFirst", "phaseMs",
+        "savedSearchId", "minRatePerMile", "startDelayMs", "earliestStartHours"
+    ];
+
+    for (const key of allowedKeys) {
+        if (key in settings) {
+            safe[key] = settings[key];
+        }
+    }
+    return safe;
+}
+
+async function doPoll(settings?: any) {
+    if (!page) throw new Error("Page not ready");
+    const started = Date.now();
+    const safeSettings = sanitizeSettings(settings);
+
+    try {
+        const loads: any[] = await page.evaluate((s) => {
+            return new Promise((resolve, reject) => {
+                window.postMessage({ type: "RELAY_POLL_NOW", settings: s }, "*");
+                const timeout = setTimeout(() => {
+                    reject(new Error("poll timeout"));
+                }, 15000);
+                window.addEventListener(
+                    "message",
+                    function handler(ev) {
+                        if (ev.data && ev.data.type === "RELAY_POLL_RESULT") {
+                            clearTimeout(timeout);
+                            window.removeEventListener("message", handler);
+                            resolve(ev.data.loads || []);
+                        }
+                    },
+                    { once: true }
+                );
+            });
+        }, safeSettings);
+
+        const durationMs = Date.now() - started;
+        failureStreak = 0;
+        sendToManager({
+            type: "poll_result",
+            ok: true,
+            durationMs,
+            loads,
+        });
+    } catch (e: any) {
+        failureStreak++;
+        const durationMs = Date.now() - started;
+        console.error("Poll error:", e);
+        sendToManager({
+            type: "poll_result",
+            ok: false,
+            durationMs,
+            error: String(e),
+        });
+
+        if (failureStreak >= 5) {
+            console.error("Too many failures, restarting browser");
+            await restartBrowser();
+            // Don't reset streak immediately, wait for a success
+        }
+    }
+}
+
+async function restartBrowser() {
+    try {
+        if (browser) await browser.close();
+    } catch { }
+    browser = null;
+    page = null;
+
+    // Add delay before restart to prevent rapid loops
+    await new Promise(r => setTimeout(r, 5000));
+    await startChrome();
+}
+
+function sendToManager(msg: any) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(msg));
+    }
+}
+
+let heartbeatInterval: NodeJS.Timeout | null = null;
+
+function connectWs() {
+    ws = new WebSocket(MANAGER_WS_URL);
+    ws.on("open", () => {
+        console.log("Connected to manager");
+        wsRetryCount = 0;
+        sendToManager({ type: "hello", nodeId: NODE_ID });
+
+        // Clear any existing interval just in case
+        if (heartbeatInterval) clearInterval(heartbeatInterval);
+        
+        heartbeatInterval = setInterval(() => {
+            sendToManager({ type: "heartbeat", ts: Date.now() });
+        }, 10000);
+    });
+    ws.on("message", async (data) => {
+        const msg = JSON.parse(data.toString());
+        if (msg.type === "poll_now") {
+            await doPoll(msg.settings);
+        }
+    });
+    ws.on("close", () => {
+        console.log("WS closed, reconnecting...");
+        
+        if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+            heartbeatInterval = null;
+        }
+
+        const delay = Math.min(1000 * Math.pow(2, wsRetryCount), MAX_WS_RETRY_DELAY);
+        wsRetryCount++;
+        setTimeout(connectWs, delay);
+    });
+    ws.on("error", (err) => {
+        console.error("WS error:", err);
+    });
+}
+
+(async () => {
+    await startChrome();
+    connectWs();
+
+    process.on("SIGTERM", async () => {
+        try {
+            if (browser) await browser.close();
+        } catch { }
+        process.exit(0);
+    });
+})();

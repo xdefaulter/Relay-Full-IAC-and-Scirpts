@@ -1,0 +1,72 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Hiring Auto</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Hiring Auto</h1>
+      <section>
+        <label>Locale</label>
+        <input id="locale" placeholder="en-CA" />
+      </section>
+      <section>
+        <label>Country</label>
+        <input id="country" placeholder="Canada" />
+      </section>
+      <section class="grid2">
+        <div>
+          <label>Latitude</label>
+          <input id="lat" type="number" step="0.000001" />
+        </div>
+        <div>
+          <label>Longitude</label>
+          <input id="lng" type="number" step="0.000001" />
+        </div>
+      </section>
+      <section class="grid2">
+        <div>
+          <label>Distance (km)</label>
+          <input id="distance" type="number" min="5" max="500" />
+        </div>
+        <div>
+          <label>Page Size</label>
+          <input id="pageSize" type="number" min="10" max="200" />
+        </div>
+      </section>
+      <section class="grid2">
+        <div>
+          <label>Min Pay Rate</label>
+          <input id="minPay" type="number" min="0" />
+        </div>
+        <div>
+          <label>Poll Interval (ms)</label>
+          <input id="fastMs" type="number" min="1000" />
+        </div>
+      </section>
+      <section class="grid2">
+        <div>
+          <label>Earliest Start (hours)</label>
+          <input id="earliest" type="number" min="0" max="720" step="1" />
+        </div>
+        <div>
+          <label>Keywords</label>
+          <input id="keywords" placeholder="optional search text" />
+        </div>
+      </section>
+
+      <div class="buttons">
+        <button id="save">Save</button>
+        <button id="start">Start</button>
+        <button id="stop">Stop</button>
+      </div>
+
+      <div id="status" class="status">status: —</div>
+      <p class="hint">Keep <code>https://hiring.amazon.ca/app#/jobSearch</code> open while polling.</p>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

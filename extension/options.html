@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Relay Options</title>
+  <style>
+    body{font:14px system-ui,sans-serif;margin:20px;max-width:720px}
+    input{padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .row{display:flex;gap:8px}
+    button{padding:8px 10px;border-radius:10px;border:0;cursor:pointer;background:#0369a1;color:#fff}
+    label{font-weight:600;display:block;margin:10px 0 6px}
+  </style>
+</head>
+<body>
+  <h1>Relay Options</h1>
+  <div class="grid2">
+    <div><label>Origin Name</label><input id="name" /></div>
+    <div><label>State Code</label><input id="state" /></div>
+    <div><label>Latitude</label><input id="lat" type="number" step="0.00001" /></div>
+    <div><label>Longitude</label><input id="lng" type="number" step="0.00001" /></div>
+  </div>
+  <label>Display</label><input id="disp" style="width:100%" />
+  <div class="grid2">
+    <div><label>Radius</label><input id="radius" type="number" /></div>
+    <div><label>Result Size</label><input id="resultSize" type="number" /></div>
+  </div>
+  <div class="grid2">
+    <div><label>Min Payout</label><input id="minPayout" type="number" /></div>
+    <div><label>Max Distance</label><input id="maxDistance" type="number" /></div>
+  </div>
+  <div class="grid2">
+    <div><label>Poll Interval (ms)</label><input id="fastMs" type="number" /></div>
+    <div><label>Phase Offset (ms)</label><input id="phaseMs" type="number" /></div>
+  </div>
+  <div class="grid2">
+    <div><label>Start Delay (ms)</label><input id="startDelayMs" type="number" /></div>
+    <div><label>Earliest Start (hours)</label><input id="earliestStartHours" type="number" step="0.25" /></div>
+  </div>
+  <div class="row">
+    <div style="align-self:end"><label><input id="stopOnFirstLoad" type="checkbox" /> Stop on first</label></div>
+  </div>
+  <label>SSE Endpoint (advanced)</label>
+  <input id="sseEndpoint" style="width:100%" placeholder="https://relay.amazon.com/api/loadboard/events" />
+  <div style="margin-top:12px"><button id="save">Save</button></div>
+
+  <script>
+    const DEF = { origin:{name:"BRAMPTON",stateCode:"ON",latitude:43.7882,longitude:-79.73719,displayValue:"BRAMPTON, ON"}, radius:50,resultSize:50,minPayout:375,maxDistance:192,fastMs:5000,phaseMs:0,startDelayMs:120000,stopOnFirstLoad:true,earliestStartHours:0 };
+    const E = (id)=>document.getElementById(id);
+    chrome.storage.sync.get(DEF, (cfg)=>{
+      E("name").value = cfg.origin.name;
+      E("state").value = cfg.origin.stateCode;
+      E("lat").value = cfg.origin.latitude;
+      E("lng").value = cfg.origin.longitude;
+      E("disp").value = cfg.origin.displayValue;
+      E("radius").value = cfg.radius;
+      E("resultSize").value = cfg.resultSize;
+      E("minPayout").value = cfg.minPayout;
+      E("maxDistance").value = cfg.maxDistance;
+      E("fastMs").value = cfg.fastMs;
+      E("phaseMs").value = cfg.phaseMs || 0;
+      E("startDelayMs").value = cfg.startDelayMs || 120000;
+      E("earliestStartHours").value = cfg.earliestStartHours || 0;
+      E("stopOnFirstLoad").checked = cfg.stopOnFirstLoad;
+      E("sseEndpoint").value = cfg.sseEndpoint || "";
+    });
+    E("save").onclick = ()=>{
+      const s = {
+        origin:{ name:E("name").value, stateCode:E("state").value, latitude:Number(E("lat").value), longitude:Number(E("lng").value), displayValue:E("disp").value },
+        radius:Number(E("radius").value), resultSize:Number(E("resultSize").value),
+        minPayout:Number(E("minPayout").value), maxDistance:Number(E("maxDistance").value),
+        fastMs:Math.max(2500, Number(E("fastMs").value)),
+        phaseMs:Math.max(0, Number(E("phaseMs").value)),
+        startDelayMs:Math.max(0, Number(E("startDelayMs").value)),
+        earliestStartHours:Math.max(0, Number(E("earliestStartHours").value)),
+        stopOnFirstLoad:!!E("stopOnFirstLoad").checked
+      };
+      const endpoint = (E("sseEndpoint").value || "").trim();
+      if (endpoint) {
+        s.sseEndpoint = endpoint;
+      }
+      chrome.storage.sync.set(s);
+      alert("Saved.");
+    };
+  </script>
+</body>
+</html>

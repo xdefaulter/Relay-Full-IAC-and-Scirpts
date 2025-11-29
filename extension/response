@@ -1,0 +1,335 @@
+{
+    "searchAuditId": "5c6fbb43-4343-422f-a89e-5f657cc4dc6b",
+    "workOpportunities": [
+        {
+            "id": "a75ed4e0-4698-4d1d-a3c8-d4fdce11cde9",
+            "version": 3,
+            "majorVersion": 3,
+            "entityType": null,
+            "operatorIds": null,
+            "startTime": null,
+            "endTime": null,
+            "expirationTime": null,
+            "expectedArrivalForNextStop": null,
+            "stopCount": 2,
+            "isRetendered": null,
+            "isUnaccepted": null,
+            "businessType": null,
+            "contractId": null,
+            "payout": {
+                "value": 523.7030720595800,
+                "unit": "CAD"
+            },
+            "transitOperatorType": "SINGLE_DRIVER",
+            "totalDuration": 10560000,
+            "totalLayover": 0,
+            "tourState": "work-opportunity",
+            "firstPickupTime": "2025-10-31T05:15:00Z",
+            "lastDeliveryTime": "2025-10-31T08:11:00Z",
+            "totalDistance": {
+                "value": 153.63465305122963,
+                "unit": "miles"
+            },
+            "loads": [
+                {
+                    "versionedLoadId": {
+                        "id": "tr-facd1c2e-125d-cbe4-c4f2-4ea79661404e",
+                        "version": null
+                    },
+                    "stops": [
+                        {
+                            "stopId": null,
+                            "stopType": "PICKUP",
+                            "stopSequenceNumber": 1,
+                            "location": {
+                                "label": "YGK1",
+                                "stopCode": "YGK1",
+                                "line1": "640 College St East",
+                                "line2": null,
+                                "line3": null,
+                                "city": "BELLEVILLE",
+                                "state": "ON",
+                                "country": "CA",
+                                "postalCode": "K8N4Z6",
+                                "latitude": 44.1940099,
+                                "longitude": -77.36514,
+                                "timeZone": "Canada/Eastern",
+                                "vendorCodes": null,
+                                "domicile": "YGK"
+                            },
+                            "locationCode": "YGK1",
+                            "weight": {
+                                "value": 10000.0,
+                                "unit": "pounds"
+                            },
+                            "actions": [
+                                {
+                                    "type": "CHECKIN",
+                                    "plannedTime": "2025-10-31T05:15:00Z",
+                                    "actualTime": null,
+                                    "actualTimeSource": null,
+                                    "delayReport": null,
+                                    "yardEvents": null
+                                },
+                                {
+                                    "type": "CHECKOUT",
+                                    "plannedTime": "2025-10-31T05:30:00Z",
+                                    "actualTime": null,
+                                    "actualTimeSource": null,
+                                    "delayReport": null,
+                                    "yardEvents": null
+                                }
+                            ],
+                            "trailerDetails": [
+                                {
+                                    "assetId": null,
+                                    "assetSource": null,
+                                    "assetOwner": "AZNG",
+                                    "assetType": null,
+                                    "trailerLoadingStatus": null,
+                                    "dropTrailerETA": null
+                                }
+                            ],
+                            "loadingType": "PRELOADED",
+                            "unloadingType": null,
+                            "pickupInstructions": null,
+                            "deliveryInstructions": null,
+                            "pickupNumbers": null,
+                            "deliveryNumbers": null,
+                            "contacts": null,
+                            "stopRequirements": [
+                                {
+                                    "requirement": null,
+                                    "stopRequirementType": "CONTAINER",
+                                    "containerOwner": "YOW3",
+                                    "oceanCarrierSCAC": null
+                                }
+                            ],
+                            "stopCategory": "NON_SORT",
+                            "isVendorLocation": null,
+                            "dropTrailerTime": null,
+                            "calculatedEstimateArrivalTime": null,
+                            "appointmentApplicability": []
+                        },
+                        {
+                            "stopId": null,
+                            "stopType": "DROPOFF",
+                            "stopSequenceNumber": 2,
+                            "location": {
+                                "label": "YOW3",
+                                "stopCode": "YOW3",
+                                "line1": "222 Citigate Drive",
+                                "line2": null,
+                                "line3": null,
+                                "city": "NEPEAN",
+                                "state": "ON",
+                                "country": "CA",
+                                "postalCode": "K2J 7C7",
+                                "latitude": 45.2682478,
+                                "longitude": -75.7883854,
+                                "timeZone": "US/Eastern",
+                                "vendorCodes": null,
+                                "domicile": "YOW"
+                            },
+                            "locationCode": "YOW3",
+                            "weight": null,
+                            "actions": [
+                                {
+                                    "type": "CHECKIN",
+                                    "plannedTime": "2025-10-31T08:10:00Z",
+                                    "actualTime": null,
+                                    "actualTimeSource": null,
+                                    "delayReport": null,
+                                    "yardEvents": null
+                                },
+                                {
+                                    "type": "CHECKOUT",
+                                    "plannedTime": "2025-10-31T08:11:00Z",
+                                    "actualTime": null,
+                                    "actualTimeSource": null,
+                                    "delayReport": null,
+                                    "yardEvents": null
+                                }
+                            ],
+                            "trailerDetails": [],
+                            "loadingType": null,
+                            "unloadingType": "DROP",
+                            "pickupInstructions": null,
+                            "deliveryInstructions": null,
+                            "pickupNumbers": null,
+                            "deliveryNumbers": null,
+                            "contacts": null,
+                            "stopRequirements": [
+                                {
+                                    "requirement": null,
+                                    "stopRequirementType": "CONTAINER",
+                                    "containerOwner": "YOW3",
+                                    "oceanCarrierSCAC": null
+                                }
+                            ],
+                            "stopCategory": "SORTABLE",
+                            "isVendorLocation": null,
+                            "dropTrailerTime": null,
+                            "calculatedEstimateArrivalTime": null,
+                            "appointmentApplicability": []
+                        }
+                    ],
+                    "loadType": "EMPTY",
+                    "equipmentType": "FIFTY_THREE_FOOT_TRUCK",
+                    "weight": null,
+                    "distance": {
+                        "value": 153.63465305122963,
+                        "unit": "miles"
+                    },
+                    "payout": {
+                        "value": 523.7030720595800,
+                        "unit": "CAD"
+                    },
+                    "costItems": [
+                        {
+                            "name": "Fuel Surcharge",
+                            "monetaryAmount": {
+                                "value": 103.7033908095800,
+                                "unit": "CAD"
+                            }
+                        },
+                        {
+                            "name": "Base Rate",
+                            "monetaryAmount": {
+                                "value": 419.9996812500000,
+                                "unit": "CAD"
+                            }
+                        }
+                    ],
+                    "layoverDuration": 0,
+                    "specialServices": [],
+                    "loadShipperAccounts": [
+                        "TrailerPoolAdjustmentDrop"
+                    ],
+                    "shipperReferenceNumbers": [],
+                    "purchaseOrders": [],
+                    "isExternalLoad": false,
+                    "existingSubCarrierName": "AZNG",
+                    "isPeelPileLoad": false,
+                    "workOpportunityId": "a75ed4e0-4698-4d1d-a3c8-d4fdce11cde9",
+                    "loadfreightType": "TRUCKLOAD",
+                    "aggregatedFreightAttributes": {
+                        "freightCommodities": [
+                            "UNKNOWN"
+                        ],
+                        "temperature": null
+                    },
+                    "woLoadCarrierSpecificShipperAccounts": {
+                        "VAS": false,
+                        "GLOBAL_MILE": false
+                    }
+                }
+            ],
+            "aggregatedCostItems": [
+                {
+                    "name": "Fuel Surcharge",
+                    "monetaryAmount": {
+                        "value": 103.7033908095800,
+                        "unit": "CAD"
+                    }
+                },
+                {
+                    "name": "Base Rate",
+                    "monetaryAmount": {
+                        "value": 419.9996812500000,
+                        "unit": "CAD"
+                    }
+                }
+            ],
+            "workType": "SPOT",
+            "workOpportunityOptionId": "1",
+            "workOpportunityType": "ONE_WAY",
+            "deadhead": {
+                "value": 121.19547879912098,
+                "unit": "miles"
+            },
+            "createdAtTime": "2025-10-31T03:58:15.564Z",
+            "endPriorityTime": null,
+            "relevanceScore": 0.0,
+            "carrierSpecificShipperAccounts": {
+                "AF_Or_IB": false,
+                "VAS": false,
+                "DELAYED_DELIVERY": false,
+                "GLOBAL_MILE": false,
+                "SWA": false
+            },
+            "startLocation": {
+                "label": "YGK1",
+                "stopCode": "YGK1",
+                "line1": "640 College St East",
+                "line2": null,
+                "line3": null,
+                "city": "BELLEVILLE",
+                "state": "ON",
+                "country": "CA",
+                "postalCode": "K8N4Z6",
+                "latitude": 44.1940099,
+                "longitude": -77.36514,
+                "timeZone": "Canada/Eastern",
+                "vendorCodes": null,
+                "domicile": "YGK"
+            },
+            "endLocation": {
+                "label": "YOW3",
+                "stopCode": "YOW3",
+                "line1": "222 Citigate Drive",
+                "line2": null,
+                "line3": null,
+                "city": "NEPEAN",
+                "state": "ON",
+                "country": "CA",
+                "postalCode": "K2J 7C7",
+                "latitude": 45.2682478,
+                "longitude": -75.7883854,
+                "timeZone": "US/Eastern",
+                "vendorCodes": null,
+                "domicile": "YOW"
+            },
+            "powerType": null,
+            "shouldShowPriorityBadge": false,
+            "workOpportunityArrivalWindows": [],
+            "matchDeviationDetails": null,
+            "eligibleFeatures": [],
+            "carrierIneligibleForWOReasonList": [],
+            "carrierIneligibleForWOContextMap": {},
+            "nationality": null,
+            "searchChannelStampedDuration": {
+                "workOpportunities": 0,
+                "bidding": 0,
+                "operator": 0,
+                "postATruck": 0,
+                "commercialCarrierAdhocBoard": 0,
+                "contract": 0,
+                "negotiation": 11
+            },
+            "tags": [
+                "STARTING_SOON"
+            ],
+            "demandSupportEnabled": false,
+            "oneDayPaymentEligible": false,
+            "laportLoad": false,
+            "chassisDepotLoad": false,
+            "adHocLoad": false
+        }
+    ],
+    "carrierDetails": {
+        "carrierPerformanceScore": 0,
+        "carrierEngagementScore": 0,
+        "carrierPerformanceCategory": "A_PLUS",
+        "carrierEngagementCategory": "UNKNOWN",
+        "priorityAccessVersion": "priorityAccessVersion2",
+        "isCarrierEligibleForOneDayPayment": false,
+        "isCarrierAllowedForOneDayPayment": false,
+        "isCarrierEligibleForOptInOneDayPayment": false,
+        "isCarrierWhiteListedForOneDayPayment": false
+    },
+    "nextItemToken": null,
+    "totalResultsSize": 1,
+    "isBotRequest": null,
+    "metadata": "{\"reasonList\":[]}"
+}

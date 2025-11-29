@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Relay Hiring Auto",
+  "version": "0.1.0",
+  "description": "Poll hiring.amazon.ca for new job cards and highlight matching shifts.",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": [
+    "https://hiring.amazon.ca/*",
+    "https://e5mquma77feepi2bdn4d6h3mpu.appsync-api.us-east-1.amazonaws.com/*",
+    "https://api.pushover.net/*"
+  ],
+  "background": {
+    "service_worker": "sw.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Relay Hiring Auto"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://hiring.amazon.ca/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["inpage.js"],
+      "matches": ["https://hiring.amazon.ca/*"]
+    }
+  ]
+}
