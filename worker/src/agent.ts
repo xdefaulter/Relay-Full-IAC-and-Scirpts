@@ -391,7 +391,7 @@ async function doPoll(settings: RelaySettings) {
             throw new Error(`Search failed: ${result.status} - ${result.error}`);
         }
 
-        console.log(`Poll success: ${result.workOpportunities.length} loads found in ${Math.round(result.duration)}ms`);
+        console.log(`Poll success: ${result.workOpportunities.length} loads found in ${Math.round(result.duration || 0)}ms`);
         return result;
 
     } catch (err) {
