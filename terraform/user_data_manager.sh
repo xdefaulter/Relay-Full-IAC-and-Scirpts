@@ -9,7 +9,7 @@ systemctl start docker
 
 cd /opt
 # Note: Replace YOUR_REPO_URL with the actual repository URL when deploying
-git clone https://github.com/your-username/relay-cluster.git relay-cluster
+git clone https://github.com/xdefaulter/Relay-Full-IAC-and-Scirpts.git relay-cluster
 cd relay-cluster
 
 # Create network first
