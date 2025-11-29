@@ -1,5 +1,5 @@
 import WebSocket from "ws";
-import puppeteer, { Browser, Page } from "puppeteer";
+import { chromium, Browser, BrowserContext, Page } from "playwright";
 
 const MANAGER_WS_URL = process.env.MANAGER_WS_URL!;
 const NODE_ID = process.env.NODE_ID || `worker-${Math.random().toString(36).slice(2)}`;
@@ -13,6 +13,7 @@ if (!WS_SECRET) {
 
 let ws: WebSocket | null = null;
 let browser: Browser | null = null;
+let context: BrowserContext | null = null;
 let page: Page | null = null;
 let failureStreak = 0;
 let wsRetryCount = 0;
@@ -22,15 +23,13 @@ import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 
-// ... (existing imports)
-
 async function startChrome() {
-    console.log("Starting Chrome...");
+    console.log("Starting Chrome with Playwright...");
 
     // Cleanup previous instances
     try {
         try {
-            execSync("pkill -f google-chrome-stable");
+            execSync("pkill -f google-chrome");
         } catch (e) {
             // Ignore if no process found
         }
@@ -45,31 +44,30 @@ async function startChrome() {
     }
 
     try {
-        browser = await puppeteer.launch({
+        // Launch browser with persistent context (better extension support)
+        context = await chromium.launchPersistentContext("/home/pptruser/chrome-profile", {
             headless: false, // Running with Xvfb virtual display
-            executablePath: "/usr/bin/google-chrome-stable",
             args: [
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
                 "--disable-gpu",
                 "--disable-setuid-sandbox",
                 "--no-zygote",
-                "--disable-web-security",
-                "--disable-features=IsolateOrigins,site-per-process",
-                "--allow-running-insecure-content",
-                "--disable-extensions-except=/opt/relay-extension",
-                "--load-extension=/opt/relay-extension",
-                "--user-data-dir=/home/pptruser/chrome-profile",
+                `--disable-extensions-except=/opt/relay-extension`,
+                `--load-extension=/opt/relay-extension`,
             ],
-            dumpio: true,
+            // Playwright automatically sets DISPLAY for Xvfb
         });
-        console.log("Browser launched, creating page...");
-        page = await browser.newPage();
+
+        console.log("Browser context created, getting page...");
+
+        // Get existing page or create new one
+        const pages = context.pages();
+        page = pages.length > 0 ? pages[0] : await context.newPage();
 
         // Capture page logs and errors
         page.on('console', msg => console.log('PAGE LOG:', msg.text()));
         page.on('pageerror', err => console.log('PAGE ERROR:', err.toString()));
-        page.on('requestfailed', request => console.log(`PAGE REQUEST FAILED: ${request.failure()?.errorText} ${request.url()}`));
 
         // Set cookies if provided
         let cookiesStr = process.env.RELAY_COOKIES;
@@ -84,7 +82,18 @@ async function startChrome() {
         if (cookiesStr) {
             try {
                 const cookies = JSON.parse(cookiesStr);
-                await page.setCookie(...cookies);
+                // Convert Puppeteer cookie format to Playwright format
+                const playwrightCookies = cookies.map((c: any) => ({
+                    name: c.name,
+                    value: c.value,
+                    domain: c.domain,
+                    path: c.path || '/',
+                    expires: c.expires || -1,
+                    httpOnly: c.httpOnly || false,
+                    secure: c.secure || false,
+                    sameSite: c.sameSite || 'Lax'
+                }));
+                await context.addCookies(playwrightCookies);
                 console.log(`Restored ${cookies.length} cookies.`);
             } catch (e) {
                 console.error("Failed to parse RELAY_COOKIES:", e);
@@ -93,7 +102,8 @@ async function startChrome() {
 
         // Check extensions
         try {
-            await page.goto("chrome://extensions", { waitUntil: "networkidle2" });
+            await page.goto("chrome://extensions");
+            await page.waitForTimeout(2000);
             const extensions = await page.evaluate(() => document.body.innerText);
             console.log("EXTENSIONS PAGE CONTENT:", extensions);
         } catch (e) {
@@ -102,7 +112,7 @@ async function startChrome() {
 
         console.log("Navigating to relay.amazon.com/tours/loadboard...");
         try {
-            await page.goto("https://relay.amazon.com/tours/loadboard", { waitUntil: "networkidle2", timeout: 60000 });
+            await page.goto("https://relay.amazon.com/tours/loadboard", { waitUntil: "networkidle", timeout: 60000 });
             console.log("Navigation complete. Current URL:", page.url());
 
             // Login Logic
@@ -113,188 +123,205 @@ async function startChrome() {
                         // Wait for email input
                         const emailSel = "#ap_email";
                         await page.waitForSelector(emailSel, { timeout: 10000 });
-                        await page.type(emailSel, USERNAME);
+                        await page.fill(emailSel, USERNAME);
 
                         // Click Continue if it exists (for 2-step login)
                         const continueSel = "#continue";
-                        if (await page.$(continueSel) !== null) {
-                            console.log("Clicking Continue button...");
-                            await page.click(continueSel);
+                        const continueBtn = await page.$(continueSel);
+                        if (continueBtn) {
+                            await continueBtn.click();
+                            await page.waitForTimeout(2000);
                         }
 
-                        // Password
+                        // Wait for password input
                         const passSel = "#ap_password";
                         await page.waitForSelector(passSel, { timeout: 10000 });
-                        await page.type(passSel, PASSWORD);
+                        await page.fill(passSel, PASSWORD);
 
                         // Submit
                         const submitSel = "#signInSubmit";
-                        await page.waitForSelector(submitSel, { timeout: 10000 });
                         await page.click(submitSel);
-
-                        console.log("Credentials submitted. Waiting for navigation...");
-                        await page.waitForNavigation({ waitUntil: "networkidle2", timeout: 60000 });
-                        console.log("Login navigation complete.");
-                    } catch (e) {
-                        console.error("Login automation failed:", e);
+                        console.log("Login submitted, waiting for navigation...");
+                        await page.waitForNavigation({ waitUntil: "networkidle", timeout: 30000 });
+                        console.log("After login, current URL:", page.url());
+                    } catch (loginErr) {
+                        console.error("Login failed:", loginErr);
                     }
                 } else {
-                    console.warn("Login page detected but no credentials provided (RELAY_USERNAME/RELAY_PASSWORD).");
+                    console.warn("No USERNAME/PASSWORD provided for login.");
                 }
             }
-
-        } catch (e) {
-            console.error("Navigation failed:", e);
+        } catch (navErr) {
+            console.error("Navigation error:", navErr);
+            throw navErr;
         }
-    } catch (e) {
-        console.error("Chrome launch failed:", e);
+
+        console.log("Chrome ready. URL:", page.url());
+        return true;
+    } catch (err) {
+        console.error("Failed to start Chrome:", err);
+        throw err;
     }
 }
 
-function sanitizeSettings(settings: any) {
-    if (!settings || typeof settings !== "object") return {};
-    // Whitelist only known safe primitives
-    const safe: any = {};
-    const allowedKeys = [
-        "origin", "radius", "resultSize", "minPayout", "maxDistance",
-        "fastMs", "stopOnFirstLoad", "autoBookFirst", "phaseMs",
-        "savedSearchId", "minRatePerMile", "startDelayMs", "earliestStartHours"
-    ];
-
-    for (const key of allowedKeys) {
-        if (key in settings) {
-            safe[key] = settings[key];
-        }
-    }
-    return safe;
-}
-
-async function doPoll(settings?: any) {
+async function doPoll() {
     if (!page) {
-        console.warn("Page not ready, skipping poll");
-        return;
+        throw new Error("Page not initialized");
     }
-    const started = Date.now();
-    const safeSettings = sanitizeSettings(settings);
 
-    try {
-        const loads = await page.evaluate((s) => {
-            return new Promise((resolve, reject) => {
-                window.postMessage({ type: "RELAY_POLL_NOW", settings: s }, "*");
-                const timeout = setTimeout(() => {
-                    reject(new Error("poll timeout"));
-                }, 15000);
-                window.addEventListener(
-                    "message",
-                    function handler(ev) {
-                        if (ev.data && ev.data.type === "RELAY_POLL_RESULT") {
-                            clearTimeout(timeout);
-                            window.removeEventListener("message", handler);
-                            resolve(ev.data.loads || []);
-                        }
-                    },
-                    { once: true }
-                );
-            });
-        }, safeSettings);
+    console.log("Triggering relay poll...");
+    const result = await page.evaluate((opts) => {
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error("poll timeout")), 10000);
 
-        const durationMs = Date.now() - started;
-        failureStreak = 0;
-        sendToManager({
-            type: "poll_result",
-            ok: true,
-            durationMs,
-            loads,
+            window.postMessage(
+                {
+                    type: "RELAY_POLL_NOW",
+                    settings: opts,
+                },
+                window.location.origin
+            );
+
+            const listener = (event: MessageEvent) => {
+                if (event.origin !== window.location.origin) return;
+                if (event.data?.type === "RELAY_POLL_RESPONSE") {
+                    clearTimeout(timeout);
+                    window.removeEventListener("message", listener);
+                    resolve(event.data.result);
+                }
+            };
+            window.addEventListener("message", listener);
         });
-    } catch (e: any) {
-        failureStreak++;
-        const durationMs = Date.now() - started;
-        console.error("Poll error:", e);
-        sendToManager({
-            type: "poll_result",
-            ok: false,
-            durationMs,
-            error: String(e),
-        });
+    }, {});
 
-        if (failureStreak >= 5) {
-            console.error("Too many failures, restarting browser");
-            await restartBrowser();
-            // Don't reset streak immediately, wait for a success
+    console.log("Poll result:", result);
+    return result;
+}
+
+function connectWS() {
+    if (ws) {
+        ws.removeAllListeners();
+        if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+            ws.close();
         }
+        ws = null;
     }
-}
 
-async function restartBrowser() {
-    try {
-        if (browser) await browser.close();
-    } catch { }
-    browser = null;
-    page = null;
+    console.log(`Connecting to Manager at ${MANAGER_WS_URL}...`);
+    ws = new WebSocket(MANAGER_WS_URL, {
+        headers: {
+            "x-worker-id": NODE_ID,
+            "x-auth-secret": WS_SECRET,
+        },
+    });
 
-    // Add delay before restart to prevent rapid loops
-    await new Promise(r => setTimeout(r, 5000));
-    await startChrome();
-}
-
-function sendToManager(msg: any) {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(msg));
-    }
-}
-
-let heartbeatInterval: NodeJS.Timeout | null = null;
-
-function connectWs() {
-    // Add authentication token to WebSocket URL
-    const wsUrl = WS_SECRET
-        ? `${MANAGER_WS_URL}?token=${encodeURIComponent(WS_SECRET)}`
-        : MANAGER_WS_URL;
-
-    ws = new WebSocket(wsUrl);
     ws.on("open", () => {
-        console.log("Connected to manager");
+        console.log("Connected to Manager");
         wsRetryCount = 0;
-        sendToManager({ type: "hello", nodeId: NODE_ID });
 
-        // Clear any existing interval just in case
-        if (heartbeatInterval) clearInterval(heartbeatInterval);
-
-        heartbeatInterval = setInterval(() => {
-            sendToManager({ type: "heartbeat", ts: Date.now() });
-        }, 10000);
+        // Send initial ready
+        ws!.send(
+            JSON.stringify({
+                type: "ready",
+                workerId: NODE_ID,
+            })
+        );
     });
-    ws.on("message", async (data) => {
+
+    ws.on("message", async (data: Buffer) => {
         const msg = JSON.parse(data.toString());
-        if (msg.type === "poll_now") {
-            await doPoll(msg.settings);
+        console.log("Received message:", msg);
+
+        if (msg.type === "poll") {
+            try {
+                const result = await doPoll();
+                ws!.send(
+                    JSON.stringify({
+                        type: "poll_result",
+                        ...result,
+                    })
+                );
+                failureStreak = 0;
+            } catch (err: any) {
+                console.error("Poll error:", err);
+                failureStreak++;
+                ws!.send(
+                    JSON.stringify({
+                        type: "poll_error",
+                        error: err.message || String(err),
+                    })
+                );
+
+                if (failureStreak >= 5) {
+                    console.error("Too many poll failures, restarting browser...");
+                    await cleanup();
+                    await startChrome();
+                    failureStreak = 0;
+                }
+            }
         }
     });
+
     ws.on("close", () => {
-        console.log("WS closed, reconnecting...");
+        console.log("Disconnected from Manager");
+        ws = null;
 
-        if (heartbeatInterval) {
-            clearInterval(heartbeatInterval);
-            heartbeatInterval = null;
-        }
-
-        const delay = Math.min(1000 * Math.pow(2, wsRetryCount), MAX_WS_RETRY_DELAY);
+        // Exponential backoff
         wsRetryCount++;
-        setTimeout(connectWs, delay);
+        const delay = Math.min(1000 * Math.pow(2, wsRetryCount), MAX_WS_RETRY_DELAY);
+        console.log(`Reconnecting in ${delay}ms (retry ${wsRetryCount})...`);
+        setTimeout(() => connectWS(), delay);
     });
-    ws.on("error", (err) => {
-        console.error("WS error:", err);
+
+    ws.on("error", (err: Error) => {
+        console.error("WebSocket error:", err.message);
     });
 }
 
-(async () => {
-    connectWs();
-    await startChrome();
+async function cleanup() {
+    console.log("Cleaning up...");
+    if (ws) {
+        ws.removeAllListeners();
+        ws.close();
+        ws = null;
+    }
+    if (page) {
+        await page.close().catch(() => { });
+        page = null;
+    }
+    if (context) {
+        await context.close().catch(() => { });
+        context = null;
+    }
+    if (browser) {
+        await browser.close().catch(() => { });
+        browser = null;
+    }
+}
+
+async function main() {
+    console.log(`Worker ${NODE_ID} starting...`);
 
     process.on("SIGTERM", async () => {
-        try {
-            if (browser) await browser.close();
-        } catch { }
+        console.log("SIGTERM received");
+        await cleanup();
         process.exit(0);
     });
-})();
+
+    process.on("SIGINT", async () => {
+        console.log("SIGINT received");
+        await cleanup();
+        process.exit(0);
+    });
+
+    try {
+        await startChrome();
+        connectWS();
+    } catch (err) {
+        console.error("Fatal error:", err);
+        await cleanup();
+        process.exit(1);
+    }
+}
+
+main();

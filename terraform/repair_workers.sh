@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-WORKER_IPS=("3.86.185.94" "35.173.247.200" "52.87.99.91")
+WORKER_IPS=("44.204.174.215" "3.82.193.118" "3.89.31.45")
 KEY_PATH="/Users/gursimranbhullar/.ssh/relay-cluster-key.pem"
-MANAGER_WS_URL="wss://10.0.1.193/agent"
+MANAGER_WS_URL="wss://100.26.106.29/agent"
 
 i=0
 for IP in "${WORKER_IPS[@]}"; do
