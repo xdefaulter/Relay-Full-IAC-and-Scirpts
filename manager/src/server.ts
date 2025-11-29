@@ -34,6 +34,14 @@ server.on('upgrade', (req, socket, head) => {
 
 const wss = new WebSocketServer({ server, path: "/agent" });
 
+wss.on('error', (err) => {
+    console.error("WebSocket Server Error:", err);
+});
+
+wss.on('headers', (headers, req) => {
+    console.log(`[${new Date().toISOString()}] WSS Headers received for ${req.url}`);
+});
+
 const nodes = new Map<string, NodeInfo>();
 const nodeSockets = new Map<string, WebSocket>();
 const loads: Load[] = [];
@@ -46,6 +54,7 @@ function log(entry: LogEntry) {
 }
 
 wss.on("connection", (ws, req) => {
+    console.log(`[${new Date().toISOString()}] WSS Connection accepted from ${req.socket.remoteAddress}`);
     // Authenticate WebSocket connection via query parameter
     const url = new URL(req.url || "", `ws://localhost`);
     const token = url.searchParams.get("token");
