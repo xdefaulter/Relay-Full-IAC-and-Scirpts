@@ -234,11 +234,11 @@ function connectWS() {
 
         if (msg.type === "poll") {
             try {
-                const result = await doPoll();
+                const result: any = await doPoll();
                 ws!.send(
                     JSON.stringify({
                         type: "poll_result",
-                        ...result,
+                        ...(result as object),
                     })
                 );
                 failureStreak = 0;
