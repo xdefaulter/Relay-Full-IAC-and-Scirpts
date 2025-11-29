@@ -191,6 +191,24 @@ resource "aws_iam_instance_profile" "ec2_profile" {
   role = aws_iam_role.ec2_ssm_role.name
 }
 
+variable "admin_ssh_cidr" {
+  description = "CIDR block allowed to SSH into manager"
+  type        = string
+}
+
+variable "relay_username" {
+  description = "Username for Relay login"
+  type        = string
+  default     = ""
+}
+
+variable "relay_password" {
+  description = "Password for Relay login"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # Store WS Secret in SSM Parameter Store
 resource "aws_ssm_parameter" "ws_secret" {
   name        = "/relay/ws_secret"
@@ -245,10 +263,13 @@ resource "aws_instance" "worker" {
   iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
 
   user_data = templatefile("${path.module}/user_data_worker.sh", {
-    manager_host       = aws_instance.manager.private_ip
-    node_id            = "worker-${count.index}"
+    manager_private_ip = aws_instance.manager.private_ip
+    # No longer passing secret directly
     ssm_parameter_name = aws_ssm_parameter.ws_secret.name
     region             = var.region
+    node_id            = "worker-${count.index}"
+    relay_username     = var.relay_username
+    relay_password     = var.relay_password
   })
   
   # Require IMDSv2 for enhanced security

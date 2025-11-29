@@ -35,12 +35,13 @@ docker run -d \
   --cap-add=CHOWN,SETUID,SETGID \
   --restart=unless-stopped \
   -v /opt/relay-cluster/extension:/opt/relay-extension:ro \
-  -e MANAGER_WS_URL=wss://${manager_host}/agent \
-  -e NODE_ID=${node_id} \
+  -e MANAGER_WS_URL=wss://${manager_private_ip}:8080/agent \
+  -e NODE_ID="${node_id}" \
   -e WS_SECRET="$WS_SECRET" \
+  -e RELAY_USERNAME="${relay_username}" \
+  -e RELAY_PASSWORD="${relay_password}" \
   -e NODE_TLS_REJECT_UNAUTHORIZED=0 \
   relay-worker
 
 echo "Worker node ${node_id} bootstrap complete!"
 docker ps
-

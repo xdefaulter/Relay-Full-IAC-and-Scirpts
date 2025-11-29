@@ -33,8 +33,8 @@ for IP in "${WORKER_IPS[@]}"; do
             # Fix invalid cap-add syntax (comma separated to multiple flags)
             RUN_CMD=${RUN_CMD//--cap-add=CHOWN,SETUID,SETGID/--cap-add=CHOWN --cap-add=SETUID --cap-add=SETGID}
             
-            # Inject PUPPETEER_EXECUTABLE_PATH
-            RUN_CMD=${RUN_CMD//-e NODE_ID/-e PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable -e NODE_ID}
+            # Inject PUPPETEER_EXECUTABLE_PATH and Credentials
+            RUN_CMD=${RUN_CMD//-e NODE_ID/-e PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable -e RELAY_USERNAME="$RELAY_USERNAME" -e RELAY_PASSWORD="$RELAY_PASSWORD" -e NODE_ID}
             
             echo "Found run command:"
             echo "$RUN_CMD"

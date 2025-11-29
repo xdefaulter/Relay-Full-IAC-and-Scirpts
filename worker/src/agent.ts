@@ -4,6 +4,8 @@ import puppeteer, { Browser, Page } from "puppeteer";
 const MANAGER_WS_URL = process.env.MANAGER_WS_URL!;
 const NODE_ID = process.env.NODE_ID || `worker-${Math.random().toString(36).slice(2)}`;
 const WS_SECRET = process.env.WS_SECRET || "";
+const USERNAME = process.env.RELAY_USERNAME || "";
+const PASSWORD = process.env.RELAY_PASSWORD || "";
 
 if (!WS_SECRET) {
     console.warn("WARNING: WS_SECRET not set! Connection may be rejected by manager.");
@@ -38,6 +40,38 @@ async function startChrome() {
         try {
             await page.goto("https://relay.amazon.com", { waitUntil: "networkidle2", timeout: 60000 });
             console.log("Navigation complete.");
+
+            // Login Logic
+            if (page.url().includes("login") || page.url().includes("signin")) {
+                console.log("Login page detected. Attempting login...");
+                if (USERNAME && PASSWORD) {
+                    try {
+                        // Wait for email input
+                        const emailSel = "#ap_email";
+                        await page.waitForSelector(emailSel, { timeout: 5000 });
+                        await page.type(emailSel, USERNAME);
+
+                        // Password
+                        const passSel = "#ap_password";
+                        await page.waitForSelector(passSel, { timeout: 5000 });
+                        await page.type(passSel, PASSWORD);
+
+                        // Submit
+                        const submitSel = "#signInSubmit";
+                        await page.waitForSelector(submitSel, { timeout: 5000 });
+                        await page.click(submitSel);
+
+                        console.log("Credentials submitted. Waiting for navigation...");
+                        await page.waitForNavigation({ waitUntil: "networkidle2", timeout: 60000 });
+                        console.log("Login navigation complete.");
+                    } catch (e) {
+                        console.error("Login automation failed:", e);
+                    }
+                } else {
+                    console.warn("Login page detected but no credentials provided (RELAY_USERNAME/RELAY_PASSWORD).");
+                }
+            }
+
         } catch (e) {
             console.error("Navigation failed:", e);
         }
