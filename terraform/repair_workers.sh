@@ -3,7 +3,9 @@ set -e
 
 WORKER_IPS=("3.86.185.94" "35.173.247.200" "52.87.99.91")
 KEY_PATH="/Users/gursimranbhullar/.ssh/relay-cluster-key.pem"
+MANAGER_WS_URL="wss://10.0.1.193/agent"
 
+i=0
 for IP in "${WORKER_IPS[@]}"; do
     echo "--------------------------------------------------"
     echo "Updating Worker: $IP"
@@ -68,8 +70,9 @@ for IP in "${WORKER_IPS[@]}"; do
       -e NODE_TLS_REJECT_UNAUTHORIZED=0 \\
       relay-worker
     
-    echo \"Worker $IP updated successfully!\"
+    echo "Worker $IP updated successfully!"
   "
+  i=$((i+1))
 done
 
 echo "All workers updated."
