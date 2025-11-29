@@ -65,7 +65,10 @@ function sanitizeSettings(settings: any) {
 }
 
 async function doPoll(settings?: any) {
-    if (!page) throw new Error("Page not ready");
+    if (!page) {
+        console.warn("Page not ready, skipping poll");
+        return;
+    }
     const started = Date.now();
     const safeSettings = sanitizeSettings(settings);
 
