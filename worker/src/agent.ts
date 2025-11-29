@@ -409,11 +409,15 @@ function connectWS() {
         ws = null;
     }
 
-    console.log(`Connecting to Manager at ${MANAGER_WS_URL}...`);
-    ws = new WebSocket(MANAGER_WS_URL, {
+    const wsUrl = new URL(MANAGER_WS_URL);
+    if (WS_SECRET) {
+        wsUrl.searchParams.set("token", WS_SECRET);
+    }
+    console.log(`Connecting to Manager at ${wsUrl.toString().replace(WS_SECRET, "***")}...`);
+
+    ws = new WebSocket(wsUrl.toString(), {
         headers: {
             "x-worker-id": NODE_ID,
-            "x-auth-secret": WS_SECRET,
         },
     });
 
