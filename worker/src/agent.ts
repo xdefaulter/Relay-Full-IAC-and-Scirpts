@@ -31,7 +31,7 @@ async function startChrome() {
                 "--disable-setuid-sandbox",
                 "--disable-extensions-except=/opt/relay-extension",
                 "--load-extension=/opt/relay-extension",
-                "--user-data-dir=/data/chrome-profile",
+                "--user-data-dir=/home/pptruser/chrome-profile",
             ],
             dumpio: true,
         });
