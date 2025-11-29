@@ -9,15 +9,16 @@ export WS_SECRET=$(aws ssm get-parameter --name "/relay/ws_secret" --region "us-
 # 1. Update Code
 echo "Pulling latest code..."
 cd /opt/relay-cluster
-git pull
+sudo git config --global --add safe.directory /opt/relay-cluster
+sudo git pull
 
 # 2. Frontend
 echo "Building Frontend..."
 cd /opt/relay-cluster/frontend
-docker build -t relay-frontend .
-docker stop relay-frontend || true
-docker rm relay-frontend || true
-docker run -d \
+sudo docker build -t relay-frontend .
+sudo docker stop relay-frontend || true
+sudo docker rm relay-frontend || true
+sudo docker run -d \
   --name relay-frontend \
   --network relay-net \
   --memory="256m" \
@@ -29,16 +30,16 @@ docker run -d \
 # 2. Manager (Fixing health check port and removing 3000 mapping)
 echo "Building Manager..."
 cd /opt/relay-cluster/manager
-docker build -t relay-manager .
-docker stop relay-manager || true
-docker rm relay-manager || true
-docker run -d \
+sudo docker build -t relay-manager .
+sudo docker stop relay-manager || true
+sudo docker rm relay-manager || true
+sudo docker run -d \
   --name relay-manager \
   --network relay-net \
   --memory="512m" \
   --cpus="1.0" \
   --restart=unless-stopped \
-  --health-cmd="curl -f http://localhost:8080/health || exit 1" \
+  --health-cmd="wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1" \
   --health-interval=30s \
   --health-timeout=10s \
   --health-retries=3 \
@@ -49,15 +50,15 @@ docker run -d \
 
 # 3. Nginx Config
 echo "Configuring Nginx..."
-mkdir -p /etc/nginx/ssl
+sudo mkdir -p /etc/nginx/ssl
 if [ ! -f /etc/nginx/ssl/nginx.key ]; then
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
       -keyout /etc/nginx/ssl/nginx.key \
       -out /etc/nginx/ssl/nginx.crt \
       -subj "/C=CA/ST=Ontario/L=Toronto/O=RelayAuto/OU=IT/CN=relay-manager"
 fi
 
-cat > /etc/nginx/sites-available/default <<EOF
+sudo tee /etc/nginx/sites-available/default > /dev/null <<EOF
 server {
     listen 80 default_server;
     server_name _;
@@ -98,6 +99,6 @@ server {
 }
 EOF
 
-systemctl restart nginx
+sudo systemctl restart nginx
 echo "Repair complete!"
-docker ps
+sudo docker ps

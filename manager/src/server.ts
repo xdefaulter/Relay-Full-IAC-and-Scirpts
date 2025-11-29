@@ -20,6 +20,18 @@ if (!WS_SECRET) {
 }
 
 const server = http.createServer(app);
+
+// Log all requests
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] HTTP ${req.method} ${req.url}`);
+    next();
+});
+
+// Log upgrade attempts
+server.on('upgrade', (req, socket, head) => {
+    console.log(`[${new Date().toISOString()}] UPGRADE ${req.url}`);
+});
+
 const wss = new WebSocketServer({ server, path: "/agent" });
 
 const nodes = new Map<string, NodeInfo>();
