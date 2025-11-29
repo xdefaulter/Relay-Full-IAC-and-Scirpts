@@ -61,6 +61,12 @@ async function startChrome() {
         });
         console.log("Browser launched, creating page...");
         page = await browser.newPage();
+
+        // Capture page logs and errors
+        page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+        page.on('pageerror', err => console.log('PAGE ERROR:', err.toString()));
+        page.on('requestfailed', request => console.log(`PAGE REQUEST FAILED: ${request.failure()?.errorText} ${request.url()}`));
+
         console.log("Navigating to relay.amazon.com/tours/loadboard...");
         try {
             await page.goto("https://relay.amazon.com/tours/loadboard", { waitUntil: "networkidle2", timeout: 60000 });
