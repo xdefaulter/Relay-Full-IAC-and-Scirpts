@@ -61,9 +61,9 @@ async function startChrome() {
         });
         console.log("Browser launched, creating page...");
         page = await browser.newPage();
-        console.log("Navigating to relay.amazon.com...");
+        console.log("Navigating to relay.amazon.com/tours/loadboard...");
         try {
-            await page.goto("https://relay.amazon.com", { waitUntil: "networkidle2", timeout: 60000 });
+            await page.goto("https://relay.amazon.com/tours/loadboard", { waitUntil: "networkidle2", timeout: 60000 });
             console.log("Navigation complete. Current URL:", page.url());
 
             // Login Logic
