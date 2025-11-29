@@ -57,7 +57,7 @@ async function startChrome() {
                 "--load-extension=/opt/relay-extension",
                 "--user-data-dir=/home/pptruser/chrome-profile",
             ],
-            dumpio: false,
+            dumpio: true,
         });
         console.log("Browser launched, creating page...");
         page = await browser.newPage();
