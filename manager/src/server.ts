@@ -218,7 +218,7 @@ app.get("/api/loads", (req, res) => {
 
 app.get("/api/logs", (req, res) => {
     const limit = Math.min(parseInt((req.query.limit as string) || "300"), 1000);
-    res.json({ logs: logs.slice(-limit).reverse() });
+    res.json({ logs: logs.slice(-limit) });
 });
 
 // Polling control
