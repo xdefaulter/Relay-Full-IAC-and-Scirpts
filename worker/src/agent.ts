@@ -156,6 +156,25 @@ function buildSlimPayload(settings: RelaySettings, userAgent: string) {
     };
 }
 
+function buildBookPath(load: any): string {
+    // Assuming load.id is the identifier for the load
+    // Example: /api/loadboard/work-opportunities/{id}/book
+    return `/work-opportunities/${load.id}/book`;
+}
+
+function buildBookBodyFromSearch(searchResult: any, load: any, auditContextMap: any): any {
+    // This structure is inferred from typical Relay booking requests.
+    // It often includes the searchAuditId and the specific load details.
+    return {
+        workOpportunityId: load.id,
+        workOpportunityType: load.workOpportunityType, // e.g., "ONE_WAY"
+        searchAuditId: searchResult.searchAuditId,
+        auditContextMap: auditContextMap,
+        // Add other necessary fields for booking if known, e.g., equipment, driver info
+        // For now, keeping it minimal based on common patterns.
+    };
+}
+
 function mapSameSite(sameSite: string | undefined): "Strict" | "Lax" | "None" {
     if (!sameSite) return "Lax";
     const lower = sameSite.toLowerCase();
@@ -380,100 +399,90 @@ async function doPoll(settings: RelaySettings) {
                 const parsed = JSON.parse(text || "{}");
                 const parseDuration = performance.now() - parseStart;
 
-                ok: true,
+                return {
+                    ok: true,
                     workOpportunities: parsed.workOpportunities || [],
-                        searchAuditId: parsed.searchAuditId,
-                            auditContextMap: parsed.auditContextMap,
-                                duration,
-                                parseDuration
-            };
-        } catch (fetchErr: any) {
-            return {
-                ok: false,
-                error: fetchErr.message || "Network error",
-                status: 0
-            };
-        }
-    }, { payload, csrf });
+                    searchAuditId: parsed.searchAuditId,
+                    auditContextMap: parsed.auditContextMap,
+                    duration,
+                    parseDuration
+                };
+            } catch (fetchErr: any) {
+                return {
+                    ok: false,
+                    error: fetchErr.message || "Network error",
+                    status: 0
+                };
+            }
+        }, { payload, csrf });
 
-    if (!result.ok) {
-        if (result.status === 401 || result.status === 403) {
-            console.warn("Auth error (401/403), clearing cached CSRF token");
-            cachedCsrfToken = null;
+        if (!result.ok) {
+            if (result.status === 401 || result.status === 403) {
+                console.warn("Auth error (401/403), clearing cached CSRF token");
+                cachedCsrfToken = null;
+            }
+            // Do not throw, return the error result so it can be sent to manager
+            console.warn(`Search failed: ${result.status} - ${result.error}`);
+            return result;
         }
-        // Do not throw, return the error result so it can be sent to manager
-        console.warn(`Search failed: ${result.status} - ${result.error}`);
+
+        console.log(`Poll success: ${result.workOpportunities.length} loads found in ${Math.round(result.duration || 0)}ms`);
+
+        // Auto-booking logic
+        if (result.ok && result.workOpportunities.length > 0 && settings.autoBookFirst) {
+            const targetLoad = result.workOpportunities[0];
+            console.log(`Auto-booking enabled. Attempting to book load ${targetLoad.id}...`);
+
+            try {
+                const bookBody = buildBookBodyFromSearch(result, targetLoad, result.auditContextMap);
+                const bookUrl = "/api/loadboard" + buildBookPath(targetLoad);
+
+                console.log("Booking URL:", bookUrl);
+
+                const bookingResult = await page.evaluate(async ({ url, body, csrf }: any) => {
+                    try {
+                        const res = await fetch(url, {
+                            method: "POST",
+                            headers: {
+                                "content-type": "application/json",
+                                "x-csrf-token": csrf
+                            },
+                            body: JSON.stringify(body)
+                        });
+
+                        if (!res.ok) {
+                            const text = await res.text();
+                            return { ok: false, status: res.status, error: text };
+                        }
+                        return { ok: true, body: await res.json() };
+                    } catch (e: any) {
+                        return { ok: false, error: e.message };
+                    }
+                }, { url: bookUrl, body: bookBody, csrf });
+
+                if (bookingResult.ok) {
+                    console.log("Booking successful!", bookingResult.body);
+                    result.booking = bookingResult.body;
+                } else {
+                    console.error("Booking failed:", bookingResult.error);
+                    result.booking = { error: bookingResult.error, status: bookingResult.status };
+                }
+
+            } catch (bookErr) {
+                console.error("Booking preparation error:", bookErr);
+            }
+        }
+
         return result;
+
+    } catch (err: any) {
+        console.error("Poll execution error:", err);
+        return {
+            ok: false,
+            error: err.message || String(err),
+            status: 0
+        };
     }
-
-    console.log(`Poll success: ${result.workOpportunities.length} loads found in ${Math.round(result.duration || 0)}ms`);
-
-    // Auto-booking logic
-    if (result.ok && result.workOpportunities.length > 0 && settings.autoBookFirst) {
-        const targetLoad = result.workOpportunities[0];
-        console.log(`Auto-booking enabled. Attempting to book load ${targetLoad.id}...`);
-
-        try {
-            // We need to pass the search result (which contains audit info) to the booking function
-            // The search result is 'parsed' inside the evaluate block, but we only returned 'workOpportunities'.
-            // We need to reconstruct or pass enough info.
-            // Actually, the 'result' object we have here is what we got from page.evaluate.
-            // But buildBookBodyFromSearch needs 'searchJson' which has 'searchAuditId'.
-            // The current 'result' only has 'workOpportunities'.
-            // We should update the evaluate block to return the full search response or at least the audit ID.
-            // For now, let's assume we can get it or it's on the load object?
-            // Checking extension: searchJson is the full response.
-
-            // Let's update the evaluate block above to return searchAuditId as well.
-            // Wait, I can't easily update the evaluate block in this MultiReplace without making it huge.
-            // I will inject the booking logic into page.evaluate to run there, similar to search.
-            // It's cleaner to run booking in the browser context anyway.
-
-            const bookingResult = await page.evaluate(async ({ load, settings, csrf, auditContextMap }: any) => {
-                // Helper functions need to be available inside evaluate or duplicated.
-                // Since we can't easily import, we'll define them inside or use a cleaner approach.
-                // Actually, defining them inside is messy.
-                // Let's define a 'bookLoad' function that we pass to evaluate, or just write the logic inline.
-
-                // To keep it simple and robust, I'll implement a 'runBooking' function inside evaluate
-                // that takes the necessary data.
-
-                // We need the search response for searchAuditId.
-                // Let's assume for now we can proceed without it or it's optional?
-                // Extension uses it: searchAuditId: auditId.
-
-                // RE-STRATEGY:
-                // 1. Modify the search evaluate to return 'searchAuditId' and 'auditContextMap'.
-                // 2. Pass these to a new 'book' evaluate call.
-
-                return { skipped: true, reason: "Booking logic requires searchAuditId" };
-            }, { load: targetLoad, settings, csrf, auditContextMap: result.auditContextMap });
-
-            // Wait, I need to update the search evaluate first to return the full context.
-            // I will do that in a separate edit or include it here if possible.
-            // I'll stick to the plan: add helper functions (which I did above, but they are in Node context).
-            // If I run booking in Node, I need to use 'fetch' from Node? No, must be from Page to share session/cookies.
-            // So I must run 'fetch' inside page.evaluate.
-            // The helper functions build the BODY and URL. I can build them in Node, then pass them to page.evaluate!
-            // Yes! That's the best way. Build body in Node, send to Page to fetch.
-
-            // I need 'searchAuditId' from the search result.
-            // I will modify the search evaluate to return it.
-        } catch (bookErr) {
-            console.error("Booking error:", bookErr);
-        }
-    }
-
-    return result;
-
-} catch (err: any) {
-    console.error("Poll execution error:", err);
-    return {
-        ok: false,
-        error: err.message || String(err),
-        status: 0
-    };
-}
 }
 
 function connectWS() {
