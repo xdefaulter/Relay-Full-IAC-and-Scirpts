@@ -643,7 +643,7 @@ function connectWS() {
                     error: result.error,
                     durationMs: result.duration,
                     loads: result.workOpportunities,
-                    booking: result.booking
+                    booking: (result as any).booking
                 }));
             }
         } catch (err) {
