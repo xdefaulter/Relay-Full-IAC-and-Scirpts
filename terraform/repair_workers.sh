@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-WORKER_IPS=("44.204.174.215" "3.82.193.118" "3.89.31.45")
+WORKER_IPS=("44.204.174.215" "3.82.193.118" "3.89.31.45" "52.207.217.83" "44.202.119.183" "54.147.38.93")
 KEY_PATH="/Users/gursimranbhullar/.ssh/relay-cluster-key.pem"
 MANAGER_WS_URL="wss://100.26.106.29/agent"
 

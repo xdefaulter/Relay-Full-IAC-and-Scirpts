@@ -11,7 +11,7 @@ variable "ssh_key_name" {
 
 variable "worker_count" {
   type        = number
-  default     = 3
+  default     = 6
   description = "Number of worker instances to create"
 }
 
