@@ -576,10 +576,10 @@ async function doPoll(settings: RelaySettings) {
 
                 if (bookingResult.ok) {
                     console.log("Booking successful!", bookingResult.body);
-                    result.booking = bookingResult.body;
+                    (result as any).booking = bookingResult.body;
                 } else {
                     console.error("Booking failed:", bookingResult.error);
-                    result.booking = { error: bookingResult.error, status: bookingResult.status };
+                    (result as any).booking = { error: bookingResult.error, status: bookingResult.status };
                 }
 
             } catch (bookErr) {
