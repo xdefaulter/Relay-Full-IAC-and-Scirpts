@@ -3,6 +3,8 @@ import { PollingConfig, SearchSettings } from "./types";
 export const config: PollingConfig = {
     periodMs: parseInt(process.env.PERIOD_MS || "400", 10), // Default 400ms = 2.5Hz max frequency
     staggerMs: parseInt(process.env.STAGGER_MS || "200", 10),
+    minWorkerPeriod: 400, // Enforced minimum period per worker (2.5Hz)
+    minGlobalDelay: 200,  // Enforced minimum delay between ANY two polls
 };
 
 export const defaultSearchSettings: SearchSettings = {

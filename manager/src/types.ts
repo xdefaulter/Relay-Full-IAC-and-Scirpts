@@ -28,6 +28,8 @@ export interface LogEntry {
 export interface PollingConfig {
   periodMs: number;
   staggerMs: number;
+  minWorkerPeriod: number;
+  minGlobalDelay: number;
 }
 
 export interface SearchSettings {

@@ -160,61 +160,77 @@ function rateLimitMiddleware(req: express.Request, res: express.Response, next: 
 app.use('/api/', rateLimitMiddleware);
 
 // Robust scheduler
-const pendingPolls = new Set<string>();
+// Robust Tick-Based Scheduler
+let lastGlobalPollTime = 0;
+let lastScheduledNodeIndex = -1;
 
-function scheduleNextPoll() {
-    setTimeout(() => {
-        if (!pollingEnabled) {
-            scheduleNextPoll();
-            return;
+function runSchedulerTick() {
+    if (!pollingEnabled) return;
+
+    const now = Date.now();
+
+    // 1. Enforce Global Delay (no two polls within minGlobalDelay)
+    if (now - lastGlobalPollTime < config.minGlobalDelay) {
+        return;
+    }
+
+    // 2. Find next eligible worker
+    const nodeList = Array.from(nodes.values()).sort((a, b) => a.nodeId.localeCompare(b.nodeId));
+    if (nodeList.length === 0) return;
+
+    // Round-robin search
+    let found = false;
+    for (let i = 0; i < nodeList.length; i++) {
+        const idx = (lastScheduledNodeIndex + 1 + i) % nodeList.length;
+        const node = nodeList[idx];
+        const ws = nodeSockets.get(node.nodeId);
+
+        if (!ws || ws.readyState !== WebSocket.OPEN) continue;
+
+        // Check if worker is busy (basic check)
+        if (node.status === "POLLING" && node.lastPollAt && (now - node.lastPollAt < 30000)) {
+            continue;
         }
 
-        const now = Date.now();
-        const nodeList = Array.from(nodes.values()).sort((a, b) => a.nodeId.localeCompare(b.nodeId));
-
-        // Cleanup old loads periodically (every minute)
-        if (Math.random() < 0.05) { // ~once every 20 cycles if period is 3s
-            const oneHourAgo = now - 3600000;
-            const initialLen = loads.length;
-            // Filter in place or create new array
-            let keepIdx = 0;
-            for (let i = 0; i < loads.length; i++) {
-                if (loads[i].createdAt > oneHourAgo) {
-                    loads[keepIdx++] = loads[i];
-                }
-            }
-            loads.length = keepIdx;
+        // 3. Enforce Worker Period (max frequency per worker)
+        // If lastPollAt is null, they are eligible immediately
+        if (node.lastPollAt && (now - node.lastPollAt < config.minWorkerPeriod)) {
+            continue;
         }
 
-        let scheduledCount = 0;
-        nodeList.forEach((node, idx) => {
-            const ws = nodeSockets.get(node.nodeId);
-            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        // Found eligible worker
+        node.status = "POLLING";
+        // We update lastPollAt here to prevent double-scheduling in next tick
+        // It will be updated again on result, but this is safe.
+        node.lastPollAt = now;
 
-            // Don't schedule if already polling (basic overlap protection)
-            if (node.status === "POLLING" && node.lastPollAt && (now - node.lastPollAt < 30000)) {
-                return;
-            }
+        ws.send(JSON.stringify({ type: "poll_now", ts: now, settings: defaultSearchSettings }));
 
-            const delay = idx * config.staggerMs;
-            scheduledCount++;
-
-            setTimeout(() => {
-                if (ws.readyState !== WebSocket.OPEN) return;
-                node.status = "POLLING";
-                ws.send(JSON.stringify({ type: "poll_now", ts: Date.now(), settings: defaultSearchSettings }));
-            }, delay);
-        });
-
-        // Schedule next cycle based on period, but ensure we don't drift too fast
-        // Enforce minimum period of 400ms (2.5Hz) to comply with rate limits
-        const safePeriod = Math.max(config.periodMs, 400);
-        setTimeout(scheduleNextPoll, safePeriod);
-    }, 0); // Execute immediately, the delay is handled by the recursive call
+        lastGlobalPollTime = now;
+        lastScheduledNodeIndex = idx;
+        found = true;
+        break; // Only one poll per tick to strictly enforce global delay
+    }
 }
 
-// Start the scheduler
-scheduleNextPoll();
+// Run scheduler tick frequently (e.g. every 50ms)
+// The tick rate determines the precision of the scheduling.
+setInterval(runSchedulerTick, 50);
+
+// Cleanup task (keep this separate)
+setInterval(() => {
+    const now = Date.now();
+    const oneHourAgo = now - 3600000;
+    if (loads.length > 0 && Math.random() < 0.1) {
+        let keepIdx = 0;
+        for (let i = 0; i < loads.length; i++) {
+            if (loads[i].createdAt > oneHourAgo) {
+                loads[keepIdx++] = loads[i];
+            }
+        }
+        loads.length = keepIdx;
+    }
+}, 60000);
 
 // REST API for frontend
 app.get("/api/nodes", (_req, res) => {
