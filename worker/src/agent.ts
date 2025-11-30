@@ -234,7 +234,7 @@ function buildTotalCostSnapshot(workOpportunity: any) {
             hasValue = true;
         }
         if (hasValue) {
-            return { value: total, unit: unit || payout?.unit || "USD" };
+            return { value: total, unit: unit || "USD" };
         }
     }
 
