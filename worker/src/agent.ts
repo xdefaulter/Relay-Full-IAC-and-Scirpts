@@ -526,8 +526,8 @@ async function doPoll(settings: RelaySettings) {
         }, { payload, csrf });
 
         // Initialize booking field for type compatibility
-        if (!result.booking) {
-            result.booking = undefined;
+        if (!(result as any).booking) {
+            (result as any).booking = undefined;
         }
 
         if (!result.ok) {
