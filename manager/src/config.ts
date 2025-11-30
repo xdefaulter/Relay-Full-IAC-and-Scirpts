@@ -4,7 +4,7 @@ export const config: PollingConfig = {
     periodMs: parseInt(process.env.PERIOD_MS || "400", 10), // Default 400ms = 2.5Hz max frequency
     staggerMs: parseInt(process.env.STAGGER_MS || "200", 10),
     minWorkerPeriod: 500, // Enforced minimum period per worker (2Hz)
-    minGlobalDelay: 400,  // Enforced minimum delay between ANY two polls (2.5Hz aggregate)
+    minGlobalDelay: 300,  // Enforced minimum delay between ANY two polls (2.5Hz aggregate)
 };
 
 export const defaultSearchSettings: SearchSettings = {
