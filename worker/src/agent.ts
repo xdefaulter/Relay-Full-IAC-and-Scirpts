@@ -156,22 +156,130 @@ function buildSlimPayload(settings: RelaySettings, userAgent: string) {
     };
 }
 
-function buildBookPath(load: any): string {
-    // Assuming load.id is the identifier for the load
-    // Example: /api/loadboard/work-opportunities/{id}/book
-    return `/work-opportunities/${load.id}/book`;
+function extractBookingIdentifiers(workOpportunity: any) {
+    if (!workOpportunity || typeof workOpportunity !== "object") {
+        throw new Error("Invalid workOpportunity payload");
+    }
+    const id = ensureBookingField(workOpportunity.id, "workOpportunityId");
+    const version = ensureBookingField(workOpportunity.version, "version", id);
+    const optionId = ensureBookingField(workOpportunity.workOpportunityOptionId, "workOpportunityOptionId", id);
+    const majorVersion = ensureBookingField(workOpportunity.majorVersion, "majorVersion", id);
+    return { id, version, optionId, majorVersion };
 }
 
-function buildBookBodyFromSearch(searchResult: any, load: any, auditContextMap: any): any {
-    // This structure is inferred from typical Relay booking requests.
-    // It often includes the searchAuditId and the specific load details.
+function ensureBookingField(value: any, field: string, workOpportunityId = "unknown") {
+    if (value === undefined || value === null || value === "") {
+        throw new Error(`Missing ${field} for workOpportunity ${workOpportunityId}`);
+    }
+    return value;
+}
+
+function buildBookPath(workOpportunity: any) {
+    const { id, version, optionId, majorVersion } = extractBookingIdentifiers(workOpportunity);
+    return `/${id}/${String(version)}/option/${String(optionId)}/majorVersion/${String(majorVersion)}`;
+}
+
+function buildMatchDeviationList(workOpportunity: any) {
+    if (!workOpportunity) return [];
+    if (Array.isArray(workOpportunity.matchDeviationDetails) && workOpportunity.matchDeviationDetails.length) {
+        return workOpportunity.matchDeviationDetails;
+    }
+    if (Array.isArray(workOpportunity.matchDeviationDetailsList) && workOpportunity.matchDeviationDetailsList.length) {
+        return workOpportunity.matchDeviationDetailsList;
+    }
+    return [];
+}
+
+function extractShipperAccounts(workOpportunity: any) {
+    if (!workOpportunity) return [];
+    if (Array.isArray(workOpportunity.shipperAccountList) && workOpportunity.shipperAccountList.length) {
+        return workOpportunity.shipperAccountList;
+    }
+
+    const loads = Array.isArray(workOpportunity.loads) ? workOpportunity.loads : [];
+    for (const load of loads) {
+        if (Array.isArray(load?.loadShipperAccounts) && load.loadShipperAccounts.length) {
+            return load.loadShipperAccounts;
+        }
+    }
+
+    return [];
+}
+
+function normalizeMonetaryAmount(monetary: any) {
+    if (!monetary || typeof monetary !== "object") return null;
+    const value = Number(monetary.value);
+    if (!Number.isFinite(value)) return null;
+    const unit = monetary.unit || monetary.currencyCode || monetary.currency || "USD";
+    return { value, unit };
+}
+
+function buildTotalCostSnapshot(workOpportunity: any) {
+    const payout = normalizeMonetaryAmount(workOpportunity?.payout);
+    if (payout) return payout;
+
+    const aggregated = Array.isArray(workOpportunity?.aggregatedCostItems) ? workOpportunity.aggregatedCostItems : [];
+    if (aggregated.length) {
+        let total = 0;
+        let unit = null;
+        let hasValue = false;
+        for (const item of aggregated) {
+            const amount = normalizeMonetaryAmount(item?.monetaryAmount);
+            if (!amount) continue;
+            total += amount.value;
+            if (!unit && amount.unit) {
+                unit = amount.unit;
+            }
+            hasValue = true;
+        }
+        if (hasValue) {
+            return { value: total, unit: unit || payout?.unit || "USD" };
+        }
+    }
+
+    return null;
+}
+
+function sanitizeAuditContextMap(value: any) {
+    if (!value) return null;
+    if (typeof value === "string") return value;
+    if (typeof value === "object") {
+        try {
+            return JSON.stringify(value);
+        } catch {
+            return null;
+        }
+    }
+    return null;
+}
+
+function buildDefaultAuditContextString() {
+    return JSON.stringify(buildAuditContextObject("RelayAuto/Worker"));
+}
+
+function resolveAuditContextMap(explicitMap: any, searchJson: any) {
+    const fromExplicit = sanitizeAuditContextMap(explicitMap);
+    if (fromExplicit) return fromExplicit;
+    const fromSearch = sanitizeAuditContextMap(searchJson?.auditContextMap);
+    if (fromSearch) return fromSearch;
+    return buildDefaultAuditContextString();
+}
+
+function buildBookBodyFromSearch(searchJson: any, workOpportunity: any, auditContextMap: any) {
+    const auditId = searchJson?.searchAuditId || "";
+    const { id, version, optionId, majorVersion } = extractBookingIdentifiers(workOpportunity);
     return {
-        workOpportunityId: load.id,
-        workOpportunityType: load.workOpportunityType, // e.g., "ONE_WAY"
-        searchAuditId: searchResult.searchAuditId,
-        auditContextMap: auditContextMap,
-        // Add other necessary fields for booking if known, e.g., equipment, driver info
-        // For now, keeping it minimal based on common patterns.
+        workOpportunityId: id,
+        version,
+        majorVersion,
+        searchAuditId: auditId,
+        workOpportunityType: workOpportunity.workOpportunityType || "ONE_WAY",
+        workOpportunityOptionId: optionId,
+        matchDeviationDetailsList: buildMatchDeviationList(workOpportunity),
+        shipperAccountList: extractShipperAccounts(workOpportunity),
+        totalCost: buildTotalCostSnapshot(workOpportunity),
+        aggregatedCostItems: Array.isArray(workOpportunity.aggregatedCostItems) ? workOpportunity.aggregatedCostItems : [],
+        auditContextMap: resolveAuditContextMap(auditContextMap, searchJson)
     };
 }
 

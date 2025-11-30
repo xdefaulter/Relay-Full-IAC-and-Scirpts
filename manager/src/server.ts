@@ -106,6 +106,17 @@ wss.on("connection", (ws, req) => {
                     message: msg.ok ? `Poll ok ${msg.durationMs}ms` : `Poll error: ${msg.error}`,
                 });
 
+                if (msg.booking) {
+                    log({
+                        ts: Date.now(),
+                        level: msg.booking.error ? "error" : "info",
+                        nodeId,
+                        message: msg.booking.error
+                            ? `Booking failed: ${msg.booking.error}`
+                            : `Booking successful! ID: ${msg.booking.workOpportunityId || 'unknown'}`
+                    });
+                }
+
                 if (Array.isArray(msg.loads)) {
                     for (const l of msg.loads) {
                         loads.push({
