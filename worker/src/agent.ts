@@ -44,10 +44,7 @@ interface PollResult {
     retryAfter?: string | null;
     booking?: any;
 }
-parseDuration ?: number;
-retryAfter ?: string | null;
-booking ?: any;
-}
+
 
 // --- State ---
 
