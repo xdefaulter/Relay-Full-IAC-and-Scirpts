@@ -525,6 +525,11 @@ async function doPoll(settings: RelaySettings) {
             }
         }, { payload, csrf });
 
+        // Initialize booking field for type compatibility
+        if (!result.booking) {
+            result.booking = undefined;
+        }
+
         if (!result.ok) {
             if (result.status === 401 || result.status === 403) {
                 console.warn("Auth error (401/403), clearing cached CSRF token");
